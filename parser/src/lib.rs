@@ -5,3 +5,6 @@ pub mod lexer;
 #[derive(Parser)]
 #[grammar = "cqrl.pest"]
 pub struct CQRLParser;
+
+#[cfg(test)]
+mod tests;
