@@ -1,1 +1,56 @@
-document = { SOI ~ EOI }
+/*
+Document defines a full document, this is the state of the definition
+*/
+document = { SOI ~ stmt* ~ EOI }
+
+/*
+Statements define different parts of the application, these are the commands, queries and models
+*/
+stmt = {stmt_command | stmt_query | stmt_model}
+
+stmt_command = {kw_command ~ QUOTATION_MARK ~ ident ~ QUOTATION_MARK ~ block_command?}
+stmt_query = {kw_query ~ QUOTATION_MARK ~ ident ~ QUOTATION_MARK ~ block_query?}
+stmt_model = {kw_model ~ QUOTATION_MARK ~ ident ~ QUOTATION_MARK ~ block_model?}
+
+/*
+Keywords are words that are case insensitive and have specific meanings within the definition
+*/
+kw_command = {^"command"}
+kw_query = {^"query"}
+kw_model = {^"model"}
+kw_required = {^"required"}
+kw_primary = {^"primary"}
+
+/*
+Blocks are the ways that we define the properties of a specific statement, i.e. the properties on a model,
+or the permission checks on a query
+*/
+block_command = {"{" ~ "}"}
+block_query = {"{" ~ "}"}
+block_model = { "{" ~ model_property* ~ "}" }
+
+model_property = { ident ~ ":" ~ dt ~ kw_required? ~ kw_primary?}
+
+/*
+DT stands for Data Types, these are datatypes that properties can be
+and will be validated against
+*/
+dt = {dt_basic | dt_list}
+
+dt_list = {"[" ~ dt_basic ~ "]"}
+dt_basic = {dt_id | dt_string | dt_pattern | dt_datetime | dt_number | dt_boolean | ident}
+
+dt_string = {^"string"}
+dt_pattern = {^"pattern" ~ QUOTATION_MARK ~ ANY+ ~ QUOTATION_MARK}
+dt_datetime = {^"datetime"}
+dt_number = {^"number"}
+dt_boolean = {^"boolean"}
+dt_id = {^"id"}
+
+/*
+ident are words that the user has defined that has some significance in their API
+*/
+ident = @{LETTER ~ (LETTER | NUMBER | "_")+}
+
+WHITESPACE = _{" " | "\t" | "\n" | "\r"}
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }

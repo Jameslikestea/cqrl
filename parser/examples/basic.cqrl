@@ -1,0 +1,19 @@
+// Command creates a command block that accepts a model
+command "test" {}
+
+// Query creates a query block that accepts query parameters and returns a model
+query "test" {}
+
+// Model defines a model for the server
+model "test" {
+    id: ID REQUIRED PRIMARY
+    username: STRING REQUIRED
+    age: NUMBER
+    created_at: DATETIME
+    updated_at: DATETIME
+}
+
+model "test2" {
+    id: ID REQUIRED PRIMARY
+    linked: [test]
+}

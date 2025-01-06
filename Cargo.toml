@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 parser = { version = "0.1.0", path = "parser" }
+pest = "2.7.15"
 
 [workspace]
 members = ["parser"]
