@@ -1,0 +1,10 @@
+[package]
+name = "cqrl"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+parser = { version = "0.1.0", path = "parser" }
+
+[workspace]
+members = ["parser"]

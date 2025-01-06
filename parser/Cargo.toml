@@ -1,0 +1,8 @@
+[package]
+name = "parser"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pest = { version = "2.7.15", features = ["pretty-print"] }
+pest_derive = "2.7.15"
