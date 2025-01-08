@@ -29,14 +29,12 @@ block_command = {"{" ~ "}"}
 block_query = {"{" ~ "}"}
 block_model = { "{" ~ model_property* ~ "}" }
 
-model_property = { ident ~ ":" ~ dt ~ kw_required? ~ kw_primary?}
+model_property = { ident ~ ":" ~ (dt_list | dt_basic) ~ kw_required? ~ kw_primary?}
 
 /*
 DT stands for Data Types, these are datatypes that properties can be
 and will be validated against
 */
-dt = {dt_basic | dt_list}
-
 dt_list = {"[" ~ dt_basic ~ "]"}
 dt_basic = {dt_id | dt_string | dt_pattern | dt_datetime | dt_number | dt_boolean | ident}
 
