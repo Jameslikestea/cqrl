@@ -159,11 +159,13 @@ fn process_dt(stmt: Pair<crate::Rule>) -> DataTypes {
 fn process_stmt_command(stmt: Pair<crate::Rule>) -> crate::Command {
     let mut command = crate::Command {
         name: String::from(""),
+        modelled_by: String::from(""),
     };
 
     for inner_type in stmt.into_inner() {
         match inner_type.as_rule() {
             crate::Rule::ident => command.name = String::from(inner_type.as_str()),
+            crate::Rule::block_command => command.modelled_by = process_block_command(inner_type),
             _ => {}
         }
     }
@@ -171,17 +173,51 @@ fn process_stmt_command(stmt: Pair<crate::Rule>) -> crate::Command {
     command
 }
 
+fn process_block_command(stmt: Pair<crate::Rule>) -> String {
+    let modelled_by = stmt
+        .into_inner()
+        .next()
+        .expect("required property modelled by");
+
+    for inner in modelled_by.into_inner() {
+        match inner.as_rule() {
+            crate::Rule::ident => return inner.as_str().to_string(),
+            _ => {}
+        }
+    }
+
+    String::from("")
+}
+
 fn process_stmt_query(stmt: Pair<crate::Rule>) -> crate::Query {
     let mut query = crate::Query {
         name: String::from(""),
+        modelled_by: String::from(""),
     };
 
     for inner_type in stmt.into_inner() {
         match inner_type.as_rule() {
             crate::Rule::ident => query.name = String::from(inner_type.as_str()),
+            crate::Rule::block_query => query.modelled_by = process_block_query(inner_type),
             _ => {}
         }
     }
 
     query
+}
+
+fn process_block_query(stmt: Pair<crate::Rule>) -> String {
+    let modelled_by = stmt
+        .into_inner()
+        .next()
+        .expect("required property modelled by");
+
+    for inner in modelled_by.into_inner() {
+        match inner.as_rule() {
+            crate::Rule::ident => return inner.as_str().to_string(),
+            _ => {}
+        }
+    }
+
+    String::from("")
 }

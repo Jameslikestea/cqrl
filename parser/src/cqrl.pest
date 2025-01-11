@@ -25,9 +25,11 @@ kw_primary = {^"primary"}
 Blocks are the ways that we define the properties of a specific statement, i.e. the properties on a model,
 or the permission checks on a query
 */
-block_command = {"{" ~ "}"}
-block_query = {"{" ~ "}"}
+block_command = {"{" ~ modelled_by ~ "}"}
+block_query = {"{" ~ modelled_by ~ "}"}
 block_model = { "{" ~ model_property* ~ "}" }
+
+modelled_by = {^"modelled_by" ~ ":" ~ ident}
 
 model_property = { ident ~ ":" ~ (dt_list | dt_basic) ~ kw_required? ~ kw_primary?}
 

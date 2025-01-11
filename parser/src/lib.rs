@@ -3,28 +3,31 @@ use serde::{Deserialize, Serialize};
 
 pub mod lexer;
 pub mod parse;
+pub mod validate;
 
 #[derive(Debug, Parser)]
 #[grammar = "cqrl.pest"]
 pub struct CQRLParser;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct API {
     pub commands: Vec<Command>,
     pub queries: Vec<Query>,
     pub models: Vec<Model>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Command {
     name: String,
+    modelled_by: String,
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Query {
     name: String,
+    modelled_by: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DataTypes {
     ID,
     String,
@@ -35,7 +38,7 @@ pub enum DataTypes {
     Model(String),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelProperty {
     name: String,
     datatype: DataTypes,
@@ -44,7 +47,7 @@ pub struct ModelProperty {
     list: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Model {
     name: String,
     properties: Vec<ModelProperty>,

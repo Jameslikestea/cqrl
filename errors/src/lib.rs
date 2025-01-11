@@ -11,6 +11,12 @@ pub enum CQRLError {
     LexError { error: Box<dyn Error> },
     #[snafu(display("Contents of file invalid, cannot parse"))]
     ParseError,
+    #[snafu(display("Invalid type used in model property"))]
+    ModelTypes,
+    #[snafu(display("Invalid type used in query"))]
+    QueryTypes,
+    #[snafu(display("Invalid type used in command"))]
+    CommandTypes,
 }
 
 pub type CQRLResult<T> = Result<T, CQRLError>;
