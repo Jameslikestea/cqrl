@@ -9,25 +9,25 @@ pub mod validate;
 #[grammar = "cqrl.pest"]
 pub struct CQRLParser;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct API {
     pub commands: Vec<Command>,
     pub queries: Vec<Query>,
     pub models: Vec<Model>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Command {
     name: String,
     modelled_by: String,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Query {
     name: String,
     modelled_by: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum DataTypes {
     ID,
     String,
@@ -38,7 +38,7 @@ pub enum DataTypes {
     Model(String),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ModelProperty {
     name: String,
     datatype: DataTypes,
@@ -47,7 +47,7 @@ pub struct ModelProperty {
     list: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Model {
     name: String,
     properties: Vec<ModelProperty>,
