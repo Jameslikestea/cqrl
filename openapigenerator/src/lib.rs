@@ -1,10 +1,10 @@
-use std::{ops::Index, vec};
+use std::vec;
 
 use indexmap::IndexMap;
 use openapiv3::{
-    ArrayType, BooleanType, Components, Header, HeaderStyle, Info, License, MediaType, NumberType,
-    ObjectType, OpenAPI, Operation, PathItem, Paths, ReferenceOr, Response, Responses, Schema,
-    SchemaData, SchemaKind, StringFormat, StringType, Type, VariantOrUnknownOrEmpty,
+    ArrayType, BooleanType, Components, Header, HeaderStyle, Info, License, NumberType, ObjectType,
+    OpenAPI, Operation, PathItem, Paths, ReferenceOr, Response, Responses, Schema, SchemaData,
+    SchemaKind, StringFormat, StringType, Type, VariantOrUnknownOrEmpty,
 };
 use parser::{Command, DataTypes, Model, Query, API};
 
