@@ -1,0 +1,9 @@
+[package]
+name = "openapigenerator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+indexmap = "2.7.1"
+openapiv3 = "2.0.0"
+parser = { version = "0.1.0", path = "../parser" }

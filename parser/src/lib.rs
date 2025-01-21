@@ -18,20 +18,20 @@ pub struct API {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Command {
-    name: String,
-    modelled_by: String,
+    pub name: String,
+    pub modelled_by: String,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Query {
-    name: String,
-    modelled_by: String,
+    pub name: String,
+    pub modelled_by: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum DataTypes {
     ID,
     String,
-    Pattern,
+    Pattern(String),
     Datetime,
     Number,
     Boolean,
@@ -40,17 +40,17 @@ pub enum DataTypes {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ModelProperty {
-    name: String,
-    datatype: DataTypes,
-    required: bool,
-    primary: bool,
-    list: bool,
+    pub name: String,
+    pub datatype: DataTypes,
+    pub required: bool,
+    pub primary: bool,
+    pub list: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Model {
-    name: String,
-    properties: Vec<ModelProperty>,
+    pub name: String,
+    pub properties: Vec<ModelProperty>,
 }
 
 impl API {

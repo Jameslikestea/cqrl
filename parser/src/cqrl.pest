@@ -38,14 +38,13 @@ DT stands for Data Types, these are datatypes that properties can be
 and will be validated against
 */
 dt_list = {"[" ~ dt_basic ~ "]"}
-dt_basic = {dt_id | dt_string | dt_pattern | dt_datetime | dt_number | dt_boolean | ident}
+dt_basic = {dt_id | dt_string | dt_datetime | dt_number | dt_boolean | ident}
 
-dt_string = {^"string"}
-dt_pattern = {^"pattern" ~ QUOTATION_MARK ~ ANY+ ~ QUOTATION_MARK}
-dt_datetime = {^"datetime"}
-dt_number = {^"number"}
-dt_boolean = {^"boolean"}
-dt_id = {^"id"}
+dt_string = @{^"string"}
+dt_datetime = @{^"datetime"}
+dt_number = @{^"number"}
+dt_boolean = @{^"boolean"}
+dt_id = @{^"id"}
 
 /*
 ident are words that the user has defined that has some significance in their API

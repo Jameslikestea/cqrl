@@ -1,0 +1,32 @@
+// Command creates a command block that accepts a model
+command "new_post" {
+    modelled_by: post_input
+}
+
+command "update_post" {
+    modelled_by: post_update_input
+}
+
+// Query creates a query block that accepts query parameters and returns a model
+query "all_posts" {
+    modelled_by: post
+}
+
+// Model defines a model for the server
+model "post_input" {
+    title: STRING REQUIRED
+    body: STRING REQUIRED
+}
+
+model "post_update_input" {
+    id: ID REQUIRED
+    title: STRING
+    body: STRING
+}
+
+model "post" {
+    id: ID REQUIRED PRIMARY
+    title: STRING
+    body: STRING
+    created_at: DATETIME
+}

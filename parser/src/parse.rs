@@ -147,7 +147,10 @@ fn process_dt(stmt: Pair<crate::Rule>) -> DataTypes {
     match dt.as_rule() {
         crate::Rule::dt_id => DataTypes::ID,
         crate::Rule::dt_string => DataTypes::String,
-        crate::Rule::dt_pattern => DataTypes::Pattern,
+        // crate::Rule::dt_pattern => {
+        //     println!("Enter Pattern");
+        //     DataTypes::Pattern("[0-9]".to_string())
+        // }
         crate::Rule::dt_datetime => DataTypes::Datetime,
         crate::Rule::dt_number => DataTypes::Number,
         crate::Rule::dt_boolean => DataTypes::Boolean,
