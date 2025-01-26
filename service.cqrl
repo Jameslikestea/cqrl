@@ -8,7 +8,7 @@ command "update_post" {
 }
 
 // Query creates a query block that accepts query parameters and returns a model
-query "all_posts" {
+query "posts" {
     modelled_by: post
 }
 

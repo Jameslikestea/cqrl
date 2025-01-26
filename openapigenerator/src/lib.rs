@@ -2,19 +2,22 @@ use std::vec;
 
 use indexmap::IndexMap;
 use openapiv3::{
-    ArrayType, BooleanType, Components, Header, HeaderStyle, Info, License, NumberType, ObjectType,
-    OpenAPI, Operation, PathItem, Paths, ReferenceOr, Response, Responses, Schema, SchemaData,
-    SchemaKind, StringFormat, StringType, Type, VariantOrUnknownOrEmpty,
+    ArrayType, BooleanType, Components, Header, HeaderStyle, Info, License, MediaType, NumberType,
+    ObjectType, OpenAPI, Operation, ParameterData, PathItem, Paths, ReferenceOr, RequestBody,
+    Response, Responses, Schema, SchemaData, SchemaKind, StringFormat, StringType, Type,
+    VariantOrUnknownOrEmpty,
 };
 use parser::{Command, DataTypes, Model, Query, API};
 
 pub fn generate_openapi_spec(api: API) -> OpenAPI {
     let mut schemas: IndexMap<String, ReferenceOr<Schema>> = IndexMap::new();
     let mut responses: IndexMap<String, ReferenceOr<Response>> = IndexMap::new();
+    let mut request_bodies: IndexMap<String, ReferenceOr<RequestBody>> = IndexMap::new();
 
     {
         generate_models(&mut schemas, api.models.clone());
         generate_responses(&mut responses, api.queries.clone());
+        generate_request_bodies(&mut request_bodies, api.commands.clone());
     }
 
     OpenAPI {
@@ -33,8 +36,9 @@ pub fn generate_openapi_spec(api: API) -> OpenAPI {
             ..Default::default()
         },
         components: Some(Components {
-            schemas: schemas,
-            responses: responses,
+            schemas: schemas.clone(),
+            responses: responses.clone(),
+            request_bodies: request_bodies.clone(),
             ..Default::default()
         }),
         ..Default::default()
@@ -52,6 +56,36 @@ fn generate_paths(
             format!("/command.{}", command.name),
             ReferenceOr::Item(PathItem {
                 post: Some(Operation {
+                    request_body: Some(ReferenceOr::ref_(
+                        ("#/components/requestBodies/command.".to_string() + command.name.as_str())
+                            .as_str(),
+                    )),
+                    parameters: vec![ReferenceOr::Item(openapiv3::Parameter::Query {
+                        parameter_data: ParameterData {
+                            name: "id".to_string(),
+                            required: false,
+                            format: openapiv3::ParameterSchemaOrContent::Schema(ReferenceOr::Item(
+                                Schema {
+                                    schema_data: SchemaData {
+                                        ..Default::default()
+                                    },
+                                    schema_kind: SchemaKind::Type(Type::String(StringType {
+                                        pattern: Some("[0-9A-HJKMNP-TV-Z]{26}".to_string()),
+                                        ..Default::default()
+                                    })),
+                                },
+                            )),
+                            explode: None,
+                            deprecated: None,
+                            description: None,
+                            example: None,
+                            examples: IndexMap::new(),
+                            extensions: IndexMap::new(),
+                        },
+                        allow_reserved: false,
+                        style: openapiv3::QueryStyle::Form,
+                        allow_empty_value: None,
+                    })],
                     responses: Responses {
                         responses: {
                             let mut imap = IndexMap::new();
@@ -90,11 +124,101 @@ fn generate_paths(
             format!("/query.{}", query.name),
             ReferenceOr::Item(PathItem {
                 get: Some(Operation {
+                    parameters: vec![
+                        ReferenceOr::Item(openapiv3::Parameter::Query {
+                            parameter_data: ParameterData {
+                                name: "id".to_string(),
+                                required: false,
+                                format: openapiv3::ParameterSchemaOrContent::Schema(
+                                    ReferenceOr::Item(Schema {
+                                        schema_data: SchemaData {
+                                            ..Default::default()
+                                        },
+                                        schema_kind: SchemaKind::Type(Type::String(StringType {
+                                            pattern: Some("[0-9A-HJKMNP-TV-Z]{26}".to_string()),
+                                            ..Default::default()
+                                        })),
+                                    }),
+                                ),
+                                explode: None,
+                                deprecated: None,
+                                description: None,
+                                example: None,
+                                examples: IndexMap::new(),
+                                extensions: IndexMap::new(),
+                            },
+                            allow_reserved: false,
+                            style: openapiv3::QueryStyle::Form,
+                            allow_empty_value: None,
+                        }),
+                        ReferenceOr::Item(openapiv3::Parameter::Query {
+                            parameter_data: ParameterData {
+                                name: "page_size".to_string(),
+                                required: true,
+                                format: openapiv3::ParameterSchemaOrContent::Schema(
+                                    ReferenceOr::Item(Schema {
+                                        schema_data: SchemaData {
+                                            default: Some(serde_json::json!(50)),
+                                            ..Default::default()
+                                        },
+                                        schema_kind: SchemaKind::Type(Type::Number(NumberType {
+                                            minimum: Some(1.0),
+                                            maximum: Some(100.0),
+                                            ..Default::default()
+                                        })),
+                                    }),
+                                ),
+                                explode: None,
+                                deprecated: None,
+                                description: None,
+                                example: None,
+                                examples: IndexMap::new(),
+                                extensions: IndexMap::new(),
+                            },
+                            allow_reserved: false,
+                            style: openapiv3::QueryStyle::Form,
+                            allow_empty_value: None,
+                        }),
+                        ReferenceOr::Item(openapiv3::Parameter::Query {
+                            parameter_data: ParameterData {
+                                name: "page".to_string(),
+                                required: true,
+                                format: openapiv3::ParameterSchemaOrContent::Schema(
+                                    ReferenceOr::Item(Schema {
+                                        schema_data: SchemaData {
+                                            default: Some(serde_json::json!(1)),
+                                            ..Default::default()
+                                        },
+                                        schema_kind: SchemaKind::Type(Type::Number(NumberType {
+                                            minimum: Some(1.0),
+                                            ..Default::default()
+                                        })),
+                                    }),
+                                ),
+                                explode: None,
+                                deprecated: None,
+                                description: None,
+                                example: None,
+                                examples: IndexMap::new(),
+                                extensions: IndexMap::new(),
+                            },
+                            allow_reserved: false,
+                            style: openapiv3::QueryStyle::Form,
+                            allow_empty_value: None,
+                        }),
+                    ],
                     tags: vec!["queries".to_string()],
                     responses: Responses {
                         responses: {
                             let mut responses = IndexMap::new();
 
+                            responses.insert(
+                                openapiv3::StatusCode::Code(200),
+                                ReferenceOr::ref_(
+                                    format!("#/components/responses/query.{}.success", query.name)
+                                        .as_str(),
+                                ),
+                            );
                             responses.insert(
                                 openapiv3::StatusCode::Code(401),
                                 ReferenceOr::ref_("#/components/responses/query.unauthorized"),
@@ -120,6 +244,33 @@ fn generate_paths(
     }
 
     paths
+}
+
+fn generate_request_bodies(
+    request_bodies: &mut IndexMap<String, ReferenceOr<RequestBody>>,
+    commands: Vec<Command>,
+) {
+    for command in commands.iter() {
+        request_bodies.insert(
+            ("command.".to_string() + command.name.as_str()).to_string(),
+            ReferenceOr::Item(RequestBody {
+                content: {
+                    let mut imap = IndexMap::new();
+
+                    let mut mt = MediaType::default();
+                    mt.schema = Some(ReferenceOr::ref_(
+                        ("#/components/schemas/".to_string() + command.modelled_by.as_str())
+                            .as_str(),
+                    ));
+
+                    imap.insert("application/json".to_string(), mt.clone());
+
+                    imap
+                },
+                ..Default::default()
+            }),
+        );
+    }
 }
 
 fn generate_responses(
@@ -206,29 +357,56 @@ fn generate_responses(
             ..Default::default()
         }),
     );
+
+    for query in queries.iter() {
+        responses.insert(
+            ("query.".to_string() + query.name.as_str() + ".success").to_string(),
+            ReferenceOr::Item(Response {
+                description: "Sucessful query response".to_string(),
+                content: {
+                    let mut imap = IndexMap::new();
+
+                    let mut mt = MediaType::default();
+                    mt.schema = Some(ReferenceOr::Item(Schema {
+                        schema_data: SchemaData::default(),
+                        schema_kind: SchemaKind::OneOf {
+                            one_of: vec![
+                                ReferenceOr::ref_(
+                                    ("#/components/schemas/".to_string()
+                                        + query.modelled_by.as_str())
+                                    .as_str(),
+                                ),
+                                ReferenceOr::Item(Schema {
+                                    schema_data: SchemaData::default(),
+                                    schema_kind: SchemaKind::Type(Type::Array(ArrayType {
+                                        items: Some(ReferenceOr::ref_(
+                                            ("#/components/schemas/".to_string()
+                                                + query.modelled_by.as_str())
+                                            .as_str(),
+                                        )),
+                                        max_items: None,
+                                        min_items: None,
+                                        unique_items: false,
+                                    })),
+                                }),
+                            ],
+                        },
+                    }));
+
+                    imap.insert("application/json".to_string(), mt.clone());
+
+                    imap
+                },
+                ..Default::default()
+            }),
+        );
+    }
 }
 
 fn generate_models(schemas: &mut IndexMap<String, ReferenceOr<Schema>>, models: Vec<Model>) {
     for model in models.iter() {
         schemas.insert(model.name.clone(), generate_schema(model));
-        schemas.insert(model.name.clone() + "_list", generate_list(model));
     }
-}
-
-fn generate_list(model: &Model) -> ReferenceOr<Schema> {
-    ReferenceOr::Item(Schema {
-        schema_data: SchemaData {
-            ..Default::default()
-        },
-        schema_kind: SchemaKind::Type(Type::Array(ArrayType {
-            items: Some(ReferenceOr::ref_(
-                (String::from("#/components/schemas/") + model.name.as_str()).as_str(),
-            )),
-            max_items: None,
-            min_items: None,
-            unique_items: false,
-        })),
-    })
 }
 
 fn generate_schema(model: &Model) -> ReferenceOr<Schema> {
