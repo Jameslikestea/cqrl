@@ -1,14 +1,10 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+use errors::CQRLResult;
+use serde_json::Value;
+
+pub trait Store {
+    fn store_operation(&mut self, k: String, v: Value) -> CQRLResult<()>;
+    fn get_object(&self, id: String) -> CQRLResult<Value>;
+    fn store_object(&mut self, k: String, v: Value) -> CQRLResult<()>;
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub mod memory;

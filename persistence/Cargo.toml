@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+errors = { version = "0.1.0", path = "../errors" }
+indexmap = "2.7.1"
+serde_json = "1.0.137"

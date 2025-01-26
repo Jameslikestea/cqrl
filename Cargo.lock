@@ -266,6 +266,11 @@ dependencies = [
 [[package]]
 name = "persistence"
 version = "0.1.0"
+dependencies = [
+ "errors",
+ "indexmap",
+ "serde_json",
+]
 
 [[package]]
 name = "pest"
