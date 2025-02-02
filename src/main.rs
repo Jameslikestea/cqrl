@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use clap::Parser;
 
 mod commands;
@@ -9,9 +11,9 @@ struct Args {
     #[command(subcommand)]
     command: commands::Commands,
 }
-
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
-    args.command.run();
+    args.command.run().await
 }

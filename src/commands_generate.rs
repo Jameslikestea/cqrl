@@ -1,4 +1,4 @@
-use std::fs;
+use std::{error::Error, fs};
 
 use clap::Subcommand;
 
@@ -15,9 +15,12 @@ pub(crate) enum GenerateCommand {
 }
 
 impl GenerateCommand {
-    pub(crate) fn run(self: Self) {
+    pub(crate) async fn run(self: Self) -> Result<(), Box<dyn Error>> {
         match self {
-            GenerateCommand::Openapi { input, output } => generate_openapi(input, output),
+            GenerateCommand::Openapi { input, output } => {
+                generate_openapi(input, output);
+                Ok(())
+            }
         }
     }
 }
