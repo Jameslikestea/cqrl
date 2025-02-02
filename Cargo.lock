@@ -740,6 +740,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "parser",
  "tokio",
  "tokio-macros",
  "tower",
