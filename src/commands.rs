@@ -49,7 +49,8 @@ impl Commands {
 
                 server.with_api(api);
 
-                server.serve().await
+                server.serve().await;
+                Ok(())
             }
         }
     }

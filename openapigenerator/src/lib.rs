@@ -53,7 +53,7 @@ fn generate_paths(
 
     for command in commands.iter() {
         paths.insert(
-            format!("/command.{}", command.name),
+            format!("/command/{}", command.name),
             ReferenceOr::Item(PathItem {
                 post: Some(Operation {
                     request_body: Some(ReferenceOr::ref_(
@@ -91,7 +91,7 @@ fn generate_paths(
                             let mut imap = IndexMap::new();
 
                             imap.insert(
-                                openapiv3::StatusCode::Code(201),
+                                openapiv3::StatusCode::Code(202),
                                 ReferenceOr::ref_("#/components/responses/command.success"),
                             );
                             imap.insert(
@@ -121,7 +121,7 @@ fn generate_paths(
 
     for query in queries.iter() {
         paths.insert(
-            format!("/query.{}", query.name),
+            format!("/query/{}", query.name),
             ReferenceOr::Item(PathItem {
                 get: Some(Operation {
                     parameters: vec![

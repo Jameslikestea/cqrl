@@ -1,27 +1,25 @@
-use futures::Future;
-use http_body_util::Full;
-use hyper::{
-    body::{Bytes, Incoming},
-    server::conn::http1,
-    service::Service,
-    Request, Response,
+use axum::{
+    routing::{get, post},
+    Router,
 };
-use hyper_util::rt::TokioIo;
+
 use parser::API;
-use std::{error::Error, net::SocketAddr, pin::Pin};
+use std::{net::SocketAddr, sync::Arc};
 use tokio::net::TcpListener;
 
 #[derive(Clone)]
 pub struct Server {
     port: u16,
-    api: API,
+    api: Arc<API>,
+    state: ServerState,
 }
 
 impl Server {
     pub fn new() -> Self {
         Server {
             port: 8912,
-            api: API::new(),
+            api: Arc::new(API::new()),
+            state: ServerState::new(Arc::new(API::new())),
         }
     }
 
@@ -30,76 +28,75 @@ impl Server {
     }
 
     pub fn with_api(&mut self, api: API) {
-        self.api = api;
+        self.api = Arc::new(api);
+        self.state.api = self.api.clone();
     }
 
-    pub async fn serve(&self) -> Result<(), Box<dyn Error>> {
+    pub async fn serve(&self) -> () {
         let addr = SocketAddr::from(([0, 0, 0, 0], self.port));
-        let listener = TcpListener::bind(addr).await?;
+        let listener = TcpListener::bind(addr).await.unwrap();
         let api = self.api.clone();
 
+        let mut router = Router::new();
+
+        router = router.route("/", get(handlers::root));
+
         for command in api.commands.iter() {
+            router = router.route(
+                format!("/command/{}", command.name).as_str(),
+                post(handlers::command),
+            );
             println!("Discovered Command: {}", command.name);
         }
         for query in api.queries.iter() {
+            router = router.route(
+                format!("/query/{}", query.name).as_str(),
+                get(handlers::query),
+            );
             println!("Discoviered Query: {}", query.name);
         }
 
-        loop {
-            let handler = Handler::new(api.clone());
-            let (stream, _) = listener.accept().await?;
+        let state = self.state.clone();
 
-            let io = TokioIo::new(stream);
-
-            tokio::task::spawn(async move {
-                if let Err(error) = http1::Builder::new().serve_connection(io, handler).await {
-                    eprintln!("Error serving connection: {:?}", error);
-                }
-            });
-        }
+        axum::serve(listener, router.with_state(state))
+            .await
+            .unwrap()
     }
 }
 
-struct Handler<'a> {
-    _name: &'a str,
-    _api: API,
-}
+mod handlers {
+    use axum::{extract::State, response::IntoResponse, Json};
+    use hyper::StatusCode;
+    use serde_json::json;
 
-impl<'a> Handler<'a> {
-    fn new(api: API) -> Self {
-        Handler {
-            _name: "handler",
-            _api: api,
-        }
+    use crate::ServerState;
+
+    pub async fn root(_state: State<ServerState>) -> impl IntoResponse {
+        (StatusCode::OK, Json("hello, world!"))
+    }
+
+    pub async fn command(State(_state): State<ServerState>) -> impl IntoResponse {
+        (StatusCode::ACCEPTED, [("x-command-id", "1234")])
+    }
+
+    pub async fn query(State(_state): State<ServerState>) -> impl IntoResponse {
+        (
+            StatusCode::OK,
+            [("x-pagination-token", "1234")],
+            Json(json!({
+                "hello": "world"
+            })),
+        )
     }
 }
 
-type Req = Request<Incoming>;
+#[derive(Debug, Clone)]
+struct ServerState {
+    api: Arc<API>,
+}
 
-impl<'a> Service<Req> for Handler<'a> {
-    type Response = Response<Full<Bytes>>;
-
-    type Error = hyper::Error;
-
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'a>>;
-
-    fn call(&self, req: Req) -> Self::Future {
-        let fut = async move {
-            match req.uri().path() {
-                "/command." => {
-                    println!("Running Command");
-                }
-                "/query." => {
-                    println!("Running Query");
-                }
-                path => {
-                    println!("Running Path: {}", path);
-                }
-            }
-
-            Ok(Response::new(Full::new(Bytes::from("hi, world"))))
-        };
-
-        Box::pin(fut)
+impl ServerState {
+    pub fn new(api: Arc<API>) -> Self {
+        ServerState { api }
     }
 }
