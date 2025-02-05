@@ -857,6 +857,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "parser",
+ "persistence",
  "serde",
  "serde_json",
  "tokio",

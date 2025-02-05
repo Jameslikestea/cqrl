@@ -20,10 +20,13 @@ impl MemoryStore {
 }
 
 impl Store for MemoryStore {
-    fn get_object(&self, k: String) -> CQRLResult<Value> {
-        match self.object_store.get(&k) {
-            Some(v) => Ok(v.clone()),
-            None => Err(errors::CQRLError::Generic),
+    fn get_object(&self, k: Option<String>) -> CQRLResult<Value> {
+        match k {
+            Some(key) => match self.object_store.get(&key) {
+                Some(v) => Ok(v.clone()),
+                None => Err(errors::CQRLError::Generic),
+            }
+            None => Ok(Value::Array(vec![])),
         }
     }
 
@@ -111,7 +114,7 @@ mod tests {
         );
 
         assert_eq!(store.object_store.len(), 1);
-        let mut result = store.get_object("value".to_string());
+        let mut result = store.get_object(Some("value".to_string()));
         assert!(result.is_ok());
         let value = result.unwrap();
         assert_eq!(
@@ -120,7 +123,7 @@ mod tests {
                 "test": "value"
             })
         );
-        result = store.get_object("invalid".to_string());
+        result = store.get_object(Some("invalid".to_string()));
         assert!(result.is_err());
     }
 }

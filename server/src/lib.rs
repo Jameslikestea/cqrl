@@ -8,18 +8,18 @@ use std::{net::SocketAddr, sync::Arc};
 use tokio::net::TcpListener;
 
 #[derive(Clone)]
-pub struct Server {
+pub struct Server<S> where S: persistence::Store + Clone + Send + Sync + 'static {
     port: u16,
     api: Arc<API>,
-    state: ServerState,
+    state: ServerState<S>,
 }
 
-impl Server {
-    pub fn new() -> Self {
+impl<S> Server<S> where S: persistence::Store + Clone + Send + Sync + 'static {
+    pub fn new(store: S) -> Self {
         Server {
             port: 8912,
             api: Arc::new(API::new()),
-            state: ServerState::new(Arc::new(API::new())),
+            state: ServerState::new(Arc::new(API::new()), store),
         }
     }
 
@@ -71,32 +71,37 @@ mod handlers {
 
     use crate::ServerState;
 
-    pub async fn root(_state: State<ServerState>) -> impl IntoResponse {
+    pub async fn root<S>(_state: State<ServerState<S>>) -> impl IntoResponse where S: persistence::Store + Clone + Send + Sync + 'static {
         (StatusCode::OK, Json("hello, world!"))
     }
-
-    pub async fn command(State(_state): State<ServerState>) -> impl IntoResponse {
+    pub async fn command<S>(State(mut _state): State<ServerState<S>>) -> impl IntoResponse where S: persistence::Store + Clone + Send + Sync + 'static {
+        _state.store.store_operation("some_command".to_string(), json!("Some Command")).unwrap();
+        
         (StatusCode::ACCEPTED, [("x-command-id", "1234")])
     }
+    pub async fn query<S>(State(_state): State<ServerState<S>>) -> impl IntoResponse where S: persistence::Store + Clone + Send + Sync + 'static {
 
-    pub async fn query(State(_state): State<ServerState>) -> impl IntoResponse {
+        let values = _state.store.get_object(None).unwrap();
+
         (
             StatusCode::OK,
             [("x-pagination-token", "1234")],
-            Json(json!({
-                "hello": "world"
-            })),
+            Json(values),
         )
     }
 }
 
 #[derive(Debug, Clone)]
-struct ServerState {
+struct ServerState<S> where S: persistence::Store + Clone + Send + Sync + 'static {
     api: Arc<API>,
+    store: S,
 }
 
-impl ServerState {
-    pub fn new(api: Arc<API>) -> Self {
-        ServerState { api }
+impl<S> ServerState<S> where S: persistence::Store + Clone + Send + Sync + 'static {
+    pub fn new(api: Arc<API>, store: S) -> Self {
+        ServerState { 
+            api,
+            store// You'll need to provide the persistence implementation
+        }
     }
 }

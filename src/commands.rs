@@ -45,7 +45,7 @@ impl Commands {
                     }
                 };
 
-                let mut server = Server::new();
+                let mut server = Server::new(persistence::memory::MemoryStore::new());
 
                 server.with_api(api);
 
