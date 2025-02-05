@@ -56,7 +56,7 @@ mod handler_tests {
         let state = ServerState::new(Arc::new(API::new()), store);
         
         let response = handlers::root(axum::extract::State(state)).await;
-        let (status, body) = response.into_response().into_parts();
+        let (status, _) = response.into_response().into_parts();
         
         assert_eq!(status.status, StatusCode::OK);
     }
@@ -84,7 +84,7 @@ mod handler_tests {
         
         let state = ServerState::new(Arc::new(API::new()), store);
         let response = handlers::query(axum::extract::State(state)).await;
-        let (head, body) = response.into_response().into_parts();
+        let (head, _) = response.into_response().into_parts();
         
         assert_eq!(head.status, StatusCode::OK);
         assert!(head.headers.contains_key("x-pagination-token"));
