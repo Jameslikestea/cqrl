@@ -17,6 +17,8 @@ pub enum CQRLError {
     QueryTypes,
     #[snafu(display("Invalid type used in command"))]
     CommandTypes,
+    #[snafu(display("Cannot store object in store"))]
+    StoreError,
 }
 
 pub type CQRLResult<T> = Result<T, CQRLError>;

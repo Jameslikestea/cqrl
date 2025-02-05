@@ -65,7 +65,7 @@ impl<S> Server<S> where S: persistence::Store + Clone + Send + Sync + 'static {
 }
 
 mod handlers {
-    use axum::{extract::State, response::IntoResponse, Json};
+    use axum::{body::Body, extract::State, response::{IntoResponse, Response}, Json};
     use hyper::StatusCode;
     use serde_json::json;
 
@@ -75,9 +75,23 @@ mod handlers {
         (StatusCode::OK, Json("hello, world!"))
     }
     pub async fn command<S>(State(mut _state): State<ServerState<S>>) -> impl IntoResponse where S: persistence::Store + Clone + Send + Sync + 'static {
-        _state.store.store_operation("some_command".to_string(), json!("Some Command")).unwrap();
+        match _state.store.store_object("some_command".to_string(), json!("Some Command")) {
+            Ok(_) => {
+                Response::builder()
+                    .status(StatusCode::ACCEPTED)
+                    .header("x-command-id", "1234")
+                    .body(Body::empty())
+                    .unwrap()
+            },
+            Err(e) => {
+                println!("Error storing command: {}", e);
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::empty())
+                    .unwrap()
+            }
+        }
         
-        (StatusCode::ACCEPTED, [("x-command-id", "1234")])
     }
     pub async fn query<S>(State(_state): State<ServerState<S>>) -> impl IntoResponse where S: persistence::Store + Clone + Send + Sync + 'static {
 
