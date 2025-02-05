@@ -7,6 +7,9 @@ use parser::API;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::net::TcpListener;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Clone)]
 pub struct Server<S> where S: persistence::Store + Clone + Send + Sync + 'static {
     port: u16,
