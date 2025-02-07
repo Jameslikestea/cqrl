@@ -1,10 +1,12 @@
+use std::future::Future;
+
 use errors::CQRLResult;
 use serde_json::Value;
 
-pub trait Store {
-    fn store_operation(&mut self, k: String, v: Value) -> CQRLResult<()>;
-    fn get_object(&self, id: Option<String>) -> CQRLResult<Value>;
-    fn store_object(&mut self, k: String, v: Value) -> CQRLResult<()>;
+pub trait Store: Send + Sync {    
+    fn store_operation(&mut self, k: String, v: Value, operation_type: String) -> impl Future<Output = CQRLResult<()>> + Send;
+    fn get_object(&self, id: Option<String>, object_type: String) -> impl Future<Output = CQRLResult<Value>> + Send;
+    fn store_object(&mut self, k: String, v: Value, object_type: String) -> impl Future<Output = CQRLResult<()>> + Send;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -14,10 +16,11 @@ pub enum Permission {
     Write,
 }
 
-pub trait PermissionStore {
-    fn permit(&self, id: String, user: String, permission: Permission) -> CQRLResult<bool>;
-    fn grant(&mut self, id: String, user: String, permission: Permission) -> CQRLResult<()>;
-    fn revoke(&mut self, id: String, user: String, permission: Permission) -> CQRLResult<()>;
+pub trait PermissionStore: Send + Sync {
+    fn permit(&self, id: String, user: String, permission: Permission) -> impl Future<Output = CQRLResult<bool>> + Send;
+    fn grant(&mut self, id: String, user: String, permission: Permission) -> impl Future<Output = CQRLResult<()>> + Send;
+    fn revoke(&mut self, id: String, user: String, permission: Permission) -> impl Future<Output = CQRLResult<()>> + Send;
 }
 
 pub mod memory;
+pub mod surreal;

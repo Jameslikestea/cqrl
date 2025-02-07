@@ -4,6 +4,7 @@ use crate::commands_generate::GenerateCommand;
 use clap::Subcommand;
 use parser::{CQRLParser, API};
 use server::Server;
+use surrealdb::{engine::remote::ws::Ws, opt::auth::Root};
 
 #[derive(Debug, Clone, Subcommand)]
 pub(crate) enum Commands {
@@ -45,7 +46,18 @@ impl Commands {
                     }
                 };
 
-                let mut server = Server::new(persistence::memory::MemoryStore::new());
+
+
+                let db = surrealdb::Surreal::new::<Ws>("127.0.0.1:8000").await.unwrap();
+                db.signin(Root {
+                    username: "root",
+                    password: "root",
+                }).await?;
+                db.use_ns("test").use_db("test").await?;
+
+                let mut store = persistence::surreal::SurrealStore::new(db);
+                store.init().await?;
+                let mut server = Server::new(store);
 
                 server.with_api(api);
 

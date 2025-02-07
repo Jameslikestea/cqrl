@@ -77,8 +77,11 @@ mod handlers {
     pub async fn root<S>(_state: State<ServerState<S>>) -> impl IntoResponse where S: persistence::Store + Clone + Send + Sync + 'static {
         (StatusCode::OK, Json("hello, world!"))
     }
-    pub async fn command<S>(State(mut _state): State<ServerState<S>>) -> impl IntoResponse where S: persistence::Store + Clone + Send + Sync + 'static {
-        match _state.store.store_object("some_command".to_string(), json!("Some Command")) {
+    pub async fn command<S>(State(mut _state): State<ServerState<S>>) -> impl IntoResponse 
+    where 
+        S: persistence::Store + Clone + Send + Sync + 'static,
+    {
+        match _state.store.store_operation("some_command".to_string(), json!("Some Command"), "test_object".to_string()).await {
             Ok(_) => {
                 Response::builder()
                     .status(StatusCode::ACCEPTED)
@@ -96,9 +99,11 @@ mod handlers {
         }
         
     }
-    pub async fn query<S>(State(_state): State<ServerState<S>>) -> impl IntoResponse where S: persistence::Store + Clone + Send + Sync + 'static {
-
-        let values = _state.store.get_object(None).unwrap();
+    pub async fn query<S>(State(_state): State<ServerState<S>>) -> impl IntoResponse 
+    where 
+        S: persistence::Store + Clone + Send + Sync + 'static,
+    {
+        let values = _state.store.get_object(None, "test_object".to_string()).await.unwrap();
 
         (
             StatusCode::OK,

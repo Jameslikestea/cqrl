@@ -23,7 +23,7 @@ impl MemoryStore {
 }
 
 impl Store for MemoryStore {
-    fn get_object(&self, k: Option<String>) -> CQRLResult<Value> {
+    async fn get_object(&self, k: Option<String>, _: String) -> CQRLResult<Value> {
         let store = self.object_store.read().map_err(|_| errors::CQRLError::Generic)?;
         match k {
             Some(key) => match store.get(&key) {
@@ -37,14 +37,14 @@ impl Store for MemoryStore {
         }
     }
 
-    fn store_object(&mut self, k: String, v: Value) -> CQRLResult<()> {
+    async fn store_object(&mut self, k: String, v: Value, _: String) -> CQRLResult<()> {
         println!("Storing object: {:?}", k);
         let mut store = self.object_store.write().map_err(|_| errors::CQRLError::StoreError)?;
         store.insert(k, v);
         Ok(())
     }
 
-    fn store_operation(&mut self, k: String, v: Value) -> CQRLResult<()> {
+    async fn store_operation(&mut self, k: String, v: Value, _: String) -> CQRLResult<()> {
         let mut store = self.operation_store.write().map_err(|_| errors::CQRLError::StoreError)?;
         store.insert(k, v);
         Ok(())
@@ -52,7 +52,7 @@ impl Store for MemoryStore {
 }
 
 impl PermissionStore for MemoryStore {
-    fn permit(&self, id: String, user: String, permission: Permission) -> CQRLResult<bool> {
+    async fn permit(&self, id: String, user: String, permission: Permission) -> CQRLResult<bool> {
         let store = self.permission_store.read().map_err(|_| errors::CQRLError::Generic)?;
         match store.get(&id) {
             Some(permissions) => {
@@ -65,7 +65,7 @@ impl PermissionStore for MemoryStore {
         }
     }
 
-    fn grant(&mut self, id: String, user: String, permission: Permission) -> CQRLResult<()> {
+    async fn grant(&mut self, id: String, user: String, permission: Permission) -> CQRLResult<()> {
         let mut store = self.permission_store.write().map_err(|_| errors::CQRLError::StoreError)?;
         let permissions = store.entry(id).or_insert(HashMap::new());
         let user_permissions = permissions.entry(user).or_insert(Vec::new());
@@ -75,7 +75,7 @@ impl PermissionStore for MemoryStore {
         Ok(())
     }
 
-    fn revoke(&mut self, id: String, user: String, permission: Permission) -> CQRLResult<()> {
+    async fn revoke(&mut self, id: String, user: String, permission: Permission) -> CQRLResult<()> {
         let mut store = self.permission_store.write().map_err(|_| errors::CQRLError::StoreError)?;
         if let Some(permissions) = store.get_mut(&id) {
             if let Some(user_permissions) = permissions.get_mut(&user) {
@@ -97,8 +97,8 @@ mod tests {
     use crate::Store;
     use serde_json::json;
 
-    #[test]
-    fn test_store_object() {
+    #[tokio::test]
+    async fn test_store_object() {
         let mut store = MemoryStore::new();
 
         assert_eq!(
@@ -107,8 +107,10 @@ mod tests {
                     "value".to_string(),
                     json!({
                         "test": "value"
-                    })
+                    }),
+                    "object".to_string()
                 )
+                .await
                 .is_ok(),
             true
         );
@@ -122,8 +124,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_store_operation() {
+    #[tokio::test]
+    async fn test_store_operation() {
         let mut store = MemoryStore::new();
 
         assert_eq!(
@@ -132,8 +134,10 @@ mod tests {
                     "value".to_string(),
                     json!({
                         "test": "value"
-                    })
+                    }),
+                    "operation".to_string()
                 )
+                .await
                 .is_ok(),
             true
         );
@@ -147,8 +151,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn end_to_end() {
+    #[tokio::test]
+    async fn end_to_end() {
         let mut store = MemoryStore::new();
 
         assert_eq!(
@@ -157,14 +161,16 @@ mod tests {
                     "value".to_string(),
                     json!({
                         "test": "value"
-                    })
+                    }),
+                    "object".to_string()
                 )
+                .await
                 .is_ok(),
             true
         );
 
         assert_eq!(store.object_store.read().unwrap().len(), 1);
-        let mut result = store.get_object(Some("value".to_string()));
+        let mut result = store.get_object(Some("value".to_string()), "object".to_string()).await;
         assert!(result.is_ok());
         let value = result.unwrap();
         assert_eq!(
@@ -173,7 +179,7 @@ mod tests {
                 "test": "value"
             })
         );
-        result = store.get_object(Some("invalid".to_string()));
+        result = store.get_object(Some("invalid".to_string()), "object".to_string()).await;
         assert!(result.is_err());
     }
 }

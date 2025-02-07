@@ -80,7 +80,7 @@ mod handler_tests {
     async fn test_query_handler() {
         let mut store = MemoryStore::new();
         // Pre-populate store with test data
-        store.store_object("test".to_string(), json!({"test": "value"})).unwrap();
+        store.store_object("test".to_string(), json!({"test": "value"}), "command".to_string() ).await.unwrap();
         
         let state = ServerState::new(Arc::new(API::new()), store);
         let response = handlers::query(axum::extract::State(state)).await;
