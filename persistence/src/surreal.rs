@@ -1,16 +1,10 @@
 use errors::{CQRLError, CQRLResult};
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use surrealdb::{Connection, RecordId, Surreal};
 
 use crate::{Permission, PermissionStore, Store};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SurrealObject {
-    id: RecordId,
-    metadata: Value,
-    data: Value,
-}
+
 
 #[derive(Clone)]
 pub struct SurrealStore<S> where S: Connection {
@@ -25,6 +19,8 @@ impl<S> SurrealStore<S> where S: Connection {
     pub async fn init(&mut self) -> CQRLResult<()> {
         self.db.query("DEFINE INDEX OVERWRITE object_type ON object FIELDS metadata.object_type;").await.unwrap();
         self.db.query("DEFINE INDEX OVERWRITE command_type ON command FIELDS metadata.command_type;").await.unwrap();
+        self.db.query("DEFINE TABLE OVERWRITE object SCHEMALESS CHANGEFEED 1h;").await.unwrap();
+        self.db.query("DEFINE TABLE OVERWRITE command SCHEMALESS CHANGEFEED 1h;").await.unwrap();
         Ok(())
     }
 }
@@ -48,7 +44,7 @@ impl<S> Store for SurrealStore<S> where S: Connection {
             _ => self.db.query("SELECT id, metadata, data FROM object WHERE metadata.object_type = $object_type ORDER BY id DESC;").bind(("object_type", object_type)),
         };
         let mut result = query.await.unwrap();
-        let value: Vec<SurrealObject> = result.take(0 as usize).unwrap();
+        let value: Vec<crate::SurrealObject> = result.take(0 as usize).unwrap();
         println!("{:?}", value);
 
         Ok(Value::Array(value.iter().map(|v| {
