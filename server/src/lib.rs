@@ -100,7 +100,7 @@ mod handlers {
                 .unwrap();
         }
 
-        let values = _state.store.get_object(None, "test_object".to_string()).await.unwrap();
+        let values = _state.store.get_object(None, _query).await.unwrap();
 
         Response::builder()
             .status(StatusCode::OK)

@@ -15,6 +15,8 @@ pub(crate) enum Commands {
     Serve {
         #[arg(long, short, default_value_t = String::from("./service.cqrl"))]
         input: String,
+        #[arg(long, short, default_value_t = String::from("127.0.0.1:8000"))]
+        surreal_address: String,
     },
 }
 
@@ -22,7 +24,7 @@ impl Commands {
     pub(crate) async fn run(self: Self) -> Result<(), Box<dyn Error>> {
         match self {
             Commands::Generate { command } => command.run().await,
-            Commands::Serve { input } => {
+            Commands::Serve { input, surreal_address } => {
                 {
                     println!("Serving CQRL for {}", input);
                 }
@@ -48,7 +50,7 @@ impl Commands {
 
 
 
-                let db = surrealdb::Surreal::new::<Ws>("127.0.0.1:8000").await.unwrap();
+                let db = surrealdb::Surreal::new::<Ws>(surreal_address).await.unwrap();
                 db.signin(Root {
                     username: "root",
                     password: "root",
