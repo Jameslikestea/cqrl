@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod lexer;
 pub mod parse;
+pub mod parse_hcl;
 pub mod validate;
 
 #[derive(Debug, Parser)]
