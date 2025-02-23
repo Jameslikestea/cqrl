@@ -61,7 +61,11 @@ mod handler_tests {
         let store = MemoryStore::new();
         let state = ServerState::new(Arc::new(API::new()), store);
         
-        let response = handlers::command(axum::extract::Path("test".to_string()), axum::extract::State(state)).await;
+        let response = handlers::command(
+            axum::extract::Path("test".to_string()),
+            axum::extract::State(state),
+            axum::Json(json!({})),  // Add empty JSON body
+        ).await;
         let response = response.into_response();
         
         assert_eq!(response.status(), StatusCode::ACCEPTED);

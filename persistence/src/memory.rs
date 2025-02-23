@@ -1,4 +1,5 @@
 use errors::CQRLResult;
+use surrealdb::RecordId;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use serde_json::Value;
@@ -44,10 +45,14 @@ impl Store for MemoryStore {
         Ok(())
     }
 
-    async fn store_operation(&mut self, k: String, v: Value, _: String) -> CQRLResult<()> {
+    async fn store_operation(&mut self, k: String, v: Value, _: String) -> CQRLResult<crate::SurrealObject> {
         let mut store = self.operation_store.write().map_err(|_| errors::CQRLError::StoreError)?;
-        store.insert(k, v);
-        Ok(())
+        store.insert(k.clone(), v.clone());
+        Ok(crate::SurrealObject {
+            id: RecordId::from(("command", k.clone())),
+            data: v.clone(),
+            metadata: Value::Null,
+        })
     }
 }
 

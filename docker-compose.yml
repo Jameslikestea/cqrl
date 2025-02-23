@@ -69,6 +69,13 @@ services:
     networks:
       - cqrl-network
 
+  tikv-dashboard:
+    image:  bsdelf/tikv-browser:latest
+    ports:
+      - "3000:3000"
+    networks:
+      - cqrl-network
+
 volumes:
   pd_data:
   tikv_data:

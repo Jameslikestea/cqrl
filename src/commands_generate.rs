@@ -2,7 +2,7 @@ use std::{error::Error, fs};
 
 use clap::Subcommand;
 
-use parser::{parse_hcl::parse_hcl, CQRLParser, API};
+use parser::{parse_hcl::parse_hcl, API};
 
 #[derive(Debug, Clone, Subcommand)]
 pub(crate) enum GenerateCommand {

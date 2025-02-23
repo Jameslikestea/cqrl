@@ -7,13 +7,13 @@ use surrealdb::RecordId;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SurrealObject {
-    id: RecordId,
-    metadata: Value,
-    data: Value,
+    pub id: RecordId,
+    pub metadata: Value,
+    pub data: Value,
 }
 
 pub trait Store: Send + Sync {    
-    fn store_operation(&mut self, k: String, v: Value, operation_type: String) -> impl Future<Output = CQRLResult<()>> + Send;
+    fn store_operation(&mut self, k: String, v: Value, operation_type: String) -> impl Future<Output = CQRLResult<SurrealObject>> + Send;
     fn get_object(&self, id: Option<String>, object_type: String) -> impl Future<Output = CQRLResult<Value>> + Send;
     fn store_object(&mut self, k: String, v: Value, object_type: String) -> impl Future<Output = CQRLResult<()>> + Send;
 }

@@ -1,10 +1,14 @@
 use errors::{CQRLError, CQRLResult};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use surrealdb::{Connection, RecordId, Surreal};
+use surrealdb::{Connection, RecordId, RecordIdKey, Surreal};
 
 use crate::{Permission, PermissionStore, Store};
 
-
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Record {
+    id: RecordId,
+}
 
 #[derive(Clone)]
 pub struct SurrealStore<S> where S: Connection {
@@ -26,13 +30,24 @@ impl<S> SurrealStore<S> where S: Connection {
 }
 
 impl<S> Store for SurrealStore<S> where S: Connection {
-    async fn store_operation(&mut self, _key: String, _value: Value, _operation_type: String) -> CQRLResult<()> {
-        let result = self.db.query("BEGIN").query("CREATE command:ulid() CONTENT {metadata: {type: $operation_type}, data: $command_content};").bind(("operation_type", _operation_type)).bind(("command_content", _value)).query("COMMIT").await;
+    async fn store_operation(&mut self, _key: String, _value: Value, _operation_type: String) -> CQRLResult<crate::SurrealObject> {
+        let result = self.db
+            .query("CREATE command:ulid() CONTENT {metadata: {type: $type}, data: $data}")
+            .bind(("type", _operation_type))
+            .bind(("data", _value))
+            .await;
 
         println!("{:?}", result);
 
         match result {
-            Ok(_) => Ok(()),
+            Ok(mut response) => {
+                if let Ok(created) = response.take::<Vec<crate::SurrealObject>>(0) {
+                    if let Some(record) = created.first() {
+                        return Ok(record.clone());
+                    }
+                }
+                Err(CQRLError::StoreError)
+            },
             _ => Err(CQRLError::StoreError)
         }
     }

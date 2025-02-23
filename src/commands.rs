@@ -2,7 +2,7 @@ use std::{error::Error, fs};
 
 use crate::commands_generate::GenerateCommand;
 use clap::Subcommand;
-use parser::{CQRLParser, API};
+use parser::{parse_hcl::parse_hcl, API};
 use server::Server;
 use surrealdb::{engine::remote::ws::Ws, opt::auth::Root};
 
@@ -13,7 +13,7 @@ pub(crate) enum Commands {
         command: GenerateCommand,
     },
     Serve {
-        #[arg(long, short, default_value_t = String::from("./service.cqrl"))]
+        #[arg(long, short, default_value_t = String::from("./service.hcl"))]
         input: String,
         #[arg(long, short, default_value_t = String::from("127.0.0.1:8000"))]
         surreal_address: String,
@@ -39,7 +39,7 @@ impl Commands {
 
                 let mut api: API = API::new();
 
-                match CQRLParser::parse_string(&content) {
+                match parse_hcl(&content) {
                     Ok(parsed_api) => {
                         api = parsed_api;
                     }

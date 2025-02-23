@@ -53,29 +53,53 @@ impl<S> Server<S> where S: persistence::Store + Clone + Send + Sync + 'static {
 mod handlers {
     use axum::{body::Body, extract::{Path, State}, response::{IntoResponse, Response}, Json};
     use hyper::StatusCode;
-    use serde_json::json;
+    use serde_json::{json, Value};
 
     use crate::ServerState;
 
     pub async fn root<S>(_state: State<ServerState<S>>) -> impl IntoResponse where S: persistence::Store + Clone + Send + Sync + 'static {
         (StatusCode::OK, Json("hello, world!"))
     }
-    pub async fn command<S>(Path(_command): Path<String>, State(mut _state): State<ServerState<S>>) -> impl IntoResponse 
+    pub async fn command<S>(Path(_command): Path<String>, State(mut _state): State<ServerState<S>>, Json(body): Json<serde_json::Value>) -> impl IntoResponse 
     where 
         S: persistence::Store + Clone + Send + Sync + 'static,
     {
-        if !_state.api.commands.iter().any(|c| c.name == _command) {
+
+        let command = _state.api.commands.iter().find(|c| c.name == _command);
+        if command.is_none() {
             return Response::builder()
                 .status(StatusCode::NOT_FOUND)
                 .body(Body::empty())
                 .unwrap();
         }
 
-        match _state.store.store_operation("some_command".to_string(), json!("Some Command"), "test_object".to_string()).await {
-            Ok(_) => {
+        let command = command.unwrap();
+        let model = _state.api.models.iter().find(|m| m.name == command.modelled_by).unwrap();
+
+        let mut new_val: Value = json!({});
+
+        for property in model.properties.iter() {
+            let property_name = property.name.clone();
+            let property_value = match body.get(&property_name) {
+                Some(value) => value.clone(),
+                None => {
+                    match property.required {
+                        true => return Response::builder()
+                            .status(StatusCode::UNPROCESSABLE_ENTITY)
+                            .body(Body::from(format!("Property {} is required", property_name)))
+                            .unwrap(),
+                        false => Value::Null,
+                    }
+                }
+            };
+            new_val[&property_name] = property_value.clone();
+        }
+
+        match _state.store.store_operation("some_command".to_string(), new_val, command.name.clone()).await {
+            Ok(operation) => {
                 Response::builder()
                     .status(StatusCode::ACCEPTED)
-                    .header("x-command-id", "1234")
+                    .header("x-command-id", operation.id.key().to_string())
                     .body(Body::empty())
                     .unwrap()
             },
