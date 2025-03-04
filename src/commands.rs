@@ -2,6 +2,7 @@ use std::{error::Error, fs};
 
 use crate::commands_generate::GenerateCommand;
 use clap::Subcommand;
+use events::EventEmitter;
 use parser::{parse_hcl::parse_hcl, API};
 use server::Server;
 use surrealdb::{engine::remote::ws::Ws, opt::auth::Root};
@@ -57,13 +58,19 @@ impl Commands {
                 }).await?;
                 db.use_ns("test").use_db("test").await?;
 
-                let mut store = persistence::surreal::SurrealStore::new(db);
+                let mut store = persistence::surreal::SurrealStore::new(db.clone());
                 store.init().await?;
-                let mut server = Server::new(store);
+                let mut server = Server::new(store.clone());
 
                 server.with_api(api);
 
+                let handle = tokio::spawn(async move {
+                    let mut sender = events::nats::NatsEventEmitter::new(store.clone());
+                    sender.run().await.unwrap();
+                });
+
                 server.serve().await;
+                handle.await?;
                 Ok(())
             }
         }

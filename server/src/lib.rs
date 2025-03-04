@@ -13,10 +13,10 @@ mod tests;
 #[derive(Clone)]
 pub struct Server<S> where S: persistence::Store + Clone + Send + Sync + 'static {
     port: u16,
-    state: ServerState<S>,
+    state: ServerState<S>
 }
 
-impl<S> Server<S> where S: persistence::Store + Clone + Send + Sync + 'static {
+impl<S> Server<S> where S: persistence::Store + Clone + Send + Sync + 'static{
     pub fn new(store: S) -> Self {
         Server {
             port: 8912,

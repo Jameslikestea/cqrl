@@ -1,4 +1,5 @@
 use std::future::Future;
+use futures::StreamExt;
 
 use errors::CQRLResult;
 use serde::{Deserialize, Serialize};
@@ -12,10 +13,11 @@ pub struct SurrealObject {
     pub data: Value,
 }
 
-pub trait Store: Send + Sync {    
+pub trait Store: Send + Sync {
     fn store_operation(&mut self, k: String, v: Value, operation_type: String) -> impl Future<Output = CQRLResult<SurrealObject>> + Send;
     fn get_object(&self, id: Option<String>, object_type: String) -> impl Future<Output = CQRLResult<Value>> + Send;
     fn store_object(&mut self, k: String, v: Value, object_type: String) -> impl Future<Output = CQRLResult<()>> + Send;
+    fn watch_operation(&mut self) -> impl StreamExt<Item = SurrealObject> + Send;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

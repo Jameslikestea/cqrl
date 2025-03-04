@@ -1,10 +1,11 @@
 use errors::CQRLResult;
+use futures::Stream;
 use surrealdb::RecordId;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use serde_json::Value;
 
-use crate::{Permission, PermissionStore, Store};
+use crate::{Permission, PermissionStore, Store, SurrealObject};
 
 #[derive(Clone)]
 pub struct MemoryStore {
@@ -53,6 +54,10 @@ impl Store for MemoryStore {
             data: v.clone(),
             metadata: Value::Null,
         })
+    }
+
+    fn watch_operation(&mut self) -> impl Stream<Item = SurrealObject> + Send {
+        futures::stream::empty::<SurrealObject>()
     }
 }
 

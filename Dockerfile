@@ -14,3 +14,9 @@ RUN cargo binstall cargo-watch
 
 # Copy the files to the Docker image
 COPY ./ ./
+
+RUN cargo build --release
+
+RUN cp target/release/cqrl /usr/local/bin/cqrl
+
+CMD ["cqrl"]

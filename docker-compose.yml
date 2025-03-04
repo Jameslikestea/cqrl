@@ -3,13 +3,10 @@ networks:
   cqrl-network:
 services:
   app:
-    build: .
+    image: cqrl-server
     ports:
       - "8912:8912"
     container_name: "cqrl-server"
-    volumes:
-      - .:/app
-    command: sh -c "cargo watch -x \"run -- serve --surreal-address surreal:8000\""
     depends_on:
       - surreal
     networks:
@@ -27,14 +24,6 @@ services:
       - tikv
       - pd
     restart: always
-    networks:
-      - cqrl-network
-
-  surrealist:
-    image: surrealdb/surrealist:latest
-    ports:
-      - "8001:8000"
-    command: start --user root --pass root tikv://pd:2379
     networks:
       - cqrl-network
 

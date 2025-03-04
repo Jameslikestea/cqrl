@@ -1,9 +1,13 @@
 use errors::{CQRLError, CQRLResult};
+use futures::{SinkExt, Stream};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use surrealdb::{Connection, RecordId, RecordIdKey, Surreal};
+use surrealdb::{Connection, RecordId, Surreal};
+use futures::stream::StreamExt;
+use futures::channel::mpsc;
+use tokio::task;
 
-use crate::{Permission, PermissionStore, Store};
+use crate::{Permission, PermissionStore, Store, SurrealObject};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Record {
@@ -72,6 +76,27 @@ impl<S> Store for SurrealStore<S> where S: Connection {
 
     async fn store_object(&mut self, _key: String, _value: Value, _object_type: String) -> CQRLResult<()> {
         Ok(())
+    }
+
+    fn watch_operation(&mut self) -> impl Stream<Item = SurrealObject> + Send {
+        let (mut sender, receiver) = mpsc::unbounded();
+
+        let db_clone = self.db.clone();
+        task::spawn(async move {
+            let mut stream: surrealdb::method::Stream<Vec<SurrealObject>> = db_clone.select("command").live().await.unwrap();
+            while let Some(response) = stream.next().await {
+                if let Ok(object) = response {
+                    match sender.send(object.data).await {
+                        Ok(_) => (),
+                        Err(err) => {
+                            println!("Error sending object: {:?}", err);
+                        },
+                    };
+                }
+            }
+        });
+
+        receiver
     }
 }
 
