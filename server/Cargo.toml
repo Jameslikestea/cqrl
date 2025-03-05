@@ -20,7 +20,3 @@ tower = "0.5.2"
 [dev-dependencies]
 tokio = { version = "1.43.0", features = ["test-util"] }
 axum-test = "17.2.0"
-
-[[bin]]
-name = "cqrl-server"
-path = "src/main.rs"
