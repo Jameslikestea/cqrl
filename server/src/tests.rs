@@ -44,6 +44,7 @@ mod handler_tests {
     use super::*;
     use axum::http::StatusCode;
     use axum::response::IntoResponse;
+    use parser::parse_hcl::parse_hcl;
 
     #[tokio::test]
     async fn test_root_handler() {
@@ -59,7 +60,21 @@ mod handler_tests {
     #[tokio::test]
     async fn test_command_handler() {
         let store = MemoryStore::new();
-        let state = ServerState::new(Arc::new(API::new()), store);
+
+        let api_hcl = r#"
+        command "test" {
+            modelled_by = model.test_model
+        }
+        model "test_model" {
+            test_property = {
+                type = "string"
+            }
+        }
+        "#;
+
+        let api = parse_hcl(api_hcl).unwrap();
+
+        let state = ServerState::new(Arc::new(api), store);
         
         let response = handlers::command(
             axum::extract::Path("test".to_string()),
@@ -71,7 +86,7 @@ mod handler_tests {
         assert_eq!(response.status(), StatusCode::ACCEPTED);
         assert_eq!(
             response.headers().get("x-command-id").unwrap(),
-            "1234"
+            "some_command"
         );
     }
 
@@ -80,8 +95,21 @@ mod handler_tests {
         let mut store = MemoryStore::new();
         // Pre-populate store with test data
         store.store_object("test".to_string(), json!({"test": "value"}), "command".to_string() ).await.unwrap();
+
+        let api_hcl = r#"
+        query "test" {
+            modelled_by = model.test_model
+        }
+        model "test_model" {
+            test = {
+                type = "string"
+            }
+        }
+        "#;
+
+        let api = parse_hcl(api_hcl).unwrap();
         
-        let state = ServerState::new(Arc::new(API::new()), store);
+        let state = ServerState::new(Arc::new(api), store);
         let response = handlers::query(axum::extract::Path("test".to_string()), axum::extract::State(state)).await;
         let (head, _) = response.into_response().into_parts();
         
