@@ -2,68 +2,72 @@ version: "3.9"
 networks:
   cqrl-network:
 services:
-  app:
-    image: cqrl-server
+  nats:
+    image: nats:latest
     ports:
-      - "8912:8912"
-    container_name: "cqrl-server"
-    depends_on:
-      - surreal
+      - "4222:4222"
     networks:
       - cqrl-network
-
-  surreal:
-    image: surrealdb/surrealdb:latest
-    ports:
-      - "8000:8000"
-    command: start --user root --pass root tikv://pd:2379
+  nats-listener:
+    image: natsio/nats-box:latest
+    command: nats sub -s nats://nats:4222 "cqrl.command.>"
+    networks:
+      - cqrl-network
+  postgres:
+    image: postgres:latest
     environment:
-      - SURREALDB_USER=root
-      - SURREALDB_PASS=root
-    depends_on:
-      - tikv
-      - pd
-    restart: always
-    networks:
-      - cqrl-network
-
-  pd:
-    image: pingcap/pd:latest
+      POSTGRES_USER: cqrl
+      POSTGRES_PASSWORD: cqrl
+      POSTGRES_DB: cqrl
     ports:
-      - "22379:2379"
-    volumes:
-      - pd_data:/data
-    command:
-      - --name=pd
-      - --client-urls=http://0.0.0.0:2379
-      - --peer-urls=http://0.0.0.0:2380
-      - --advertise-client-urls=http://pd:2379
-      - --advertise-peer-urls=http://pd:2380
-      - --initial-cluster=pd=http://pd:2380
-      - --data-dir=/data/pd
+      - "5432:5432"
     networks:
       - cqrl-network
+  # surreal:
+  #   image: surrealdb/surrealdb:latest
+  #   ports:
+  #     - "8000:8000"
+  #   command: start --user root --pass root tikv://pd:2379
+  #   environment:
+  #     - SURREALDB_USER=root
+  #     - SURREALDB_PASS=root
+  #   depends_on:
+  #     - tikv
+  #     - pd
+  #   restart: always
+  #   networks:
+  #     - cqrl-network
 
-  tikv:
-    image: pingcap/tikv:latest
-    ports:
-      - "20160:20160"
-    volumes:
-      - tikv_data:/data
-    command:
-      - --addr=0.0.0.0:20160
-      - --advertise-addr=tikv:20160
-      - --pd=pd:2379
-      - --data-dir=/data/tikv
-    networks:
-      - cqrl-network
+  # pd:
+  #   image: pingcap/pd:latest
+  #   ports:
+  #     - "22379:2379"
+  #   volumes:
+  #     - pd_data:/data
+  #   command:
+  #     - --name=pd
+  #     - --client-urls=http://0.0.0.0:2379
+  #     - --peer-urls=http://0.0.0.0:2380
+  #     - --advertise-client-urls=http://pd:2379
+  #     - --advertise-peer-urls=http://pd:2380
+  #     - --initial-cluster=pd=http://pd:2380
+  #     - --data-dir=/data/pd
+  #   networks:
+  #     - cqrl-network
 
-  tikv-dashboard:
-    image:  bsdelf/tikv-browser:latest
-    ports:
-      - "3000:3000"
-    networks:
-      - cqrl-network
+  # tikv:
+  #   image: pingcap/tikv:latest
+  #   ports:
+  #     - "20160:20160"
+  #   volumes:
+  #     - tikv_data:/data
+  #   command:
+  #     - --addr=0.0.0.0:20160
+  #     - --advertise-addr=tikv:20160
+  #     - --pd=pd:2379
+  #     - --data-dir=/data/tikv
+  #   networks:
+  #     - cqrl-network
 
 volumes:
   pd_data:

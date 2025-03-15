@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+async-nats = "0.39.0"
 base32 = "0.5.1"
 chrono = "0.4.39"
 cloudevents-sdk = { version = "0.8.0" }
@@ -12,4 +13,5 @@ futures = "0.3.31"
 persistence = { version = "0.1.0", path = "../persistence" }
 serde = "1.0.218"
 serde_json = "1.0.139"
+tokio = { version = "1.44.1", features = ["full"] }
 ulid = "1.2.0"

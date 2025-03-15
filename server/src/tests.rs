@@ -77,9 +77,7 @@ mod handler_tests {
         let state = ServerState::new(Arc::new(api), store);
         
         let response = handlers::command(
-            axum::extract::Path("test".to_string()),
             axum::extract::State(state),
-            axum::Json(json!({})),  // Add empty JSON body
         ).await;
         let response = response.into_response();
         

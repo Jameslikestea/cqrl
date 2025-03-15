@@ -1,19 +1,27 @@
+use std::sync::Arc;
+
 use cloudevents::EventBuilder;
 use errors::CQRLResult;
 use persistence::SurrealObject;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use futures::StreamExt;
+use tokio;
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NatsEventEmitter<S> where S: persistence::Store + Clone {
     store: S,
+    #[serde(skip)]
+    client: Option<Arc<async_nats::Client>>,
 }
 
 impl<S> NatsEventEmitter<S> where S: persistence::Store + Clone {
-    pub fn new(store: S) -> Self {
-        Self { store }
+    pub fn new(store: S, client: async_nats::Client) -> Self {
+        Self { 
+            store, 
+            client: Some(Arc::new(client)) 
+        }
     }
 }
 
@@ -39,8 +47,24 @@ impl<S> crate::EventEmitter<S> for NatsEventEmitter<S> where S: persistence::Sto
 
         let ts = chrono::DateTime::from_timestamp_millis(timestamp.try_into().unwrap()).unwrap();
 
-        let event = cloudevents::EventBuilderV10::new().id(event.id.key().to_string()).ty("cqrl.command").source(source.clone()).data(source.clone(), event.data).time(ts).build();
-        println!("{:#?}", event);
+        let event = cloudevents::EventBuilderV10::new()
+            .id(event.id.key().to_string())
+            .ty("cqrl.command")
+            .source(source.clone())
+            .data(source.clone(), event.data)
+            .time(ts)
+            .build();
+
+        // Clone the Arc<Client> before moving it into the spawned task
+        if let Some(client) = &self.client {
+            let client = client.clone();
+            tokio::spawn(async move {
+                client.publish(
+                    format!("cqrl.command.{}", source),
+                    serde_json::to_string(&event.unwrap()).unwrap().into()
+                ).await
+            });
+        }
 
         Ok(())
     }
