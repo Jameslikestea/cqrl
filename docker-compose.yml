@@ -13,14 +13,14 @@ services:
     command: nats sub -s nats://nats:4222 "cqrl.command.>"
     networks:
       - cqrl-network
-  postgres:
-    image: postgres:latest
+  mongodb:
+    image: mongodb/mongodb-community-server:latest
     environment:
-      POSTGRES_USER: cqrl
-      POSTGRES_PASSWORD: cqrl
-      POSTGRES_DB: cqrl
+      MONGO_INITDB_ROOT_USERNAME: cqrl
+      MONGO_INITDB_ROOT_PASSWORD: cqrl
+      MONGO_INITDB_DATABASE: cqrl
     ports:
-      - "5432:5432"
+      - "27017:27017"
     networks:
       - cqrl-network
   # surreal:

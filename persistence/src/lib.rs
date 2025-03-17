@@ -39,3 +39,4 @@ pub enum StoreEnum {
 
 pub mod memory;
 pub mod surreal;
+pub mod mongo;
