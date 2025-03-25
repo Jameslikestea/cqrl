@@ -78,6 +78,8 @@ mod handler_tests {
         
         let response = handlers::command(
             axum::extract::State(state),
+            axum::extract::Path(("test".to_string(),)),
+            axum::Json(json!({"test": "value"}))
         ).await;
         let response = response.into_response();
         

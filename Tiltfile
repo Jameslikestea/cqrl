@@ -1,3 +1,3 @@
 docker_compose('./docker-compose.yml')
 
-local_resource('cqrl-server', 'cargo build --release', serve_cmd=["./target/release/cqrl", "serve", "--database-mode", "mongodb", "--mongodb-address", "mongodb://cqrl:cqrl@localhost:27017/cqrl?authSource=admin","--nats-address", "nats://localhost:4222"], deps=['./src', './Cargo.toml', './Cargo.lock', './persistence', './events', './server', './errors', './parser'], trigger_mode=TRIGGER_MODE_AUTO)
+local_resource('cqrl-server', 'cargo build --release', serve_cmd=["./target/release/cqrl", "serve", "--database-mode", "mongodb", "--mongodb-address", "mongodb://127.0.10.1:27017/cqrl?replicaSet=rs0","--nats-address", "nats://localhost:4222"], deps=['./src', './Cargo.toml', './Cargo.lock', './persistence', './events', './server', './errors', './parser'], trigger_mode=TRIGGER_MODE_AUTO)

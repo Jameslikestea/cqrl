@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use cloudevents::EventBuilder;
 use errors::CQRLResult;
-use persistence::SurrealObject;
+use persistence::PersistenceObject;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use futures::StreamExt;
@@ -38,9 +38,11 @@ impl<S> crate::EventEmitter<S> for NatsEventEmitter<S> where S: persistence::Sto
         Ok(())
     }
 
-    fn emit(self: &mut Self, event: SurrealObject) -> CQRLResult<()> {
+    fn emit(self: &mut Self, event: PersistenceObject) -> CQRLResult<()> {
         let source = event.metadata.get("type").unwrap_or(&Value::String(String::from("unknown"))).as_str().unwrap().to_string();
         let id = event.id.key().to_string();
+
+        println!("emitting event: {:?}", id);
 
         let ulid = ulid::Ulid::from_string(id.as_str()).unwrap();
         let timestamp = ulid.timestamp_ms();
@@ -69,7 +71,7 @@ impl<S> crate::EventEmitter<S> for NatsEventEmitter<S> where S: persistence::Sto
         Ok(())
     }
 
-    fn listen(self: &mut Self, event: Value) -> CQRLResult<()> {
+    fn listen(self: &mut Self, _event: Value) -> CQRLResult<()> {
         Ok(())
     }
 }

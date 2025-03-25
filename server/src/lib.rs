@@ -38,7 +38,6 @@ impl<S> Server<S> where S: persistence::Store + Clone + Send + Sync + 'static {
     pub async fn serve(&self) -> () {
         let addr = SocketAddr::from(([0, 0, 0, 0], self.port));
         let listener = TcpListener::bind(addr).await.unwrap();
-        let api = self.api.clone();
 
         let mut router = Router::new();
 
@@ -55,7 +54,6 @@ impl<S> Server<S> where S: persistence::Store + Clone + Send + Sync + 'static {
 mod handlers {
     use axum::{body::Body, extract::{Path, State}, response::{IntoResponse, Response}, Json};
     use hyper::StatusCode;
-    use serde_json::json;
 
 
     use crate::ServerState;
@@ -63,15 +61,15 @@ mod handlers {
     pub async fn root<S>(_state: State<ServerState<S>>) -> impl IntoResponse where S: persistence::Store + Clone + Send + Sync + 'static {
         (StatusCode::OK, Json("hello, world!"))
     }
-    pub async fn command<S>(State(mut _state): State<ServerState<S>>) -> impl IntoResponse 
+    pub async fn command<S>(State(mut _state): State<ServerState<S>>, Path((command_type,)): Path<(String,)>, Json(_command): Json<serde_json::Value>) -> impl IntoResponse 
     where 
         S: persistence::Store + Clone + Send + Sync + 'static,
     {
-        match _state.store.store_operation("some_command".to_string(), json!("Some Command"), "test_object".to_string()).await {
-            Ok(_) => {
+        match _state.store.store_operation(command_type.clone(), _command, command_type.clone()).await {
+            Ok(object) => {
                 Response::builder()
                     .status(StatusCode::ACCEPTED)
-                    .header("x-command-id", "1234")
+                    .header("x-command-id", object.id.key().to_string())
                     .body(Body::empty())
                     .unwrap()
             },

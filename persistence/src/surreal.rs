@@ -7,7 +7,7 @@ use futures::stream::StreamExt;
 use futures::channel::mpsc;
 use tokio::task;
 
-use crate::{Permission, PermissionStore, Store, SurrealObject};
+use crate::{Permission, PermissionStore, Store, PersistenceObject};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Record {
@@ -34,7 +34,7 @@ impl<S> SurrealStore<S> where S: Connection {
 }
 
 impl<S> Store for SurrealStore<S> where S: Connection {
-    async fn store_operation(&mut self, _key: String, _value: Value, _operation_type: String) -> CQRLResult<crate::SurrealObject> {
+    async fn store_operation(&mut self, _key: String, _value: Value, _operation_type: String) -> CQRLResult<crate::PersistenceObject> {
         let result = self.db
             .query("CREATE command:ulid() CONTENT {metadata: {type: $type}, data: $data}")
             .bind(("type", _operation_type))
@@ -45,7 +45,7 @@ impl<S> Store for SurrealStore<S> where S: Connection {
 
         match result {
             Ok(mut response) => {
-                if let Ok(created) = response.take::<Vec<crate::SurrealObject>>(0) {
+                if let Ok(created) = response.take::<Vec<crate::PersistenceObject>>(0) {
                     if let Some(record) = created.first() {
                         return Ok(record.clone());
                     }
@@ -63,7 +63,7 @@ impl<S> Store for SurrealStore<S> where S: Connection {
             _ => self.db.query("SELECT id, metadata, data FROM object WHERE metadata.object_type = $object_type ORDER BY id DESC;").bind(("object_type", object_type)),
         };
         let mut result = query.await.unwrap();
-        let value: Vec<crate::SurrealObject> = result.take(0 as usize).unwrap();
+        let value: Vec<crate::PersistenceObject> = result.take(0 as usize).unwrap();
         println!("{:?}", value);
 
         Ok(Value::Array(value.iter().map(|v| {
@@ -78,12 +78,12 @@ impl<S> Store for SurrealStore<S> where S: Connection {
         Ok(())
     }
 
-    fn watch_operation(&mut self) -> impl Stream<Item = SurrealObject> + Send {
+    fn watch_operation(&mut self) -> impl Stream<Item = PersistenceObject> + Send {
         let (mut sender, receiver) = mpsc::unbounded();
 
         let db_clone = self.db.clone();
         task::spawn(async move {
-            let mut stream: surrealdb::method::Stream<Vec<SurrealObject>> = db_clone.select("command").live().await.unwrap();
+            let mut stream: surrealdb::method::Stream<Vec<PersistenceObject>> = db_clone.select("command").live().await.unwrap();
             while let Some(response) = stream.next().await {
                 if let Ok(object) = response {
                     match sender.send(object.data).await {

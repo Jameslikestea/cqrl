@@ -1,8 +1,9 @@
-use std::{error::Error, fs};
+use std::{error::Error, fs, time::Duration};
 
 use crate::commands_generate::GenerateCommand;
 use clap::Subcommand;
 use events::EventEmitter;
+use mongodb::options::ClientOptions;
 use parser::{parse_hcl::parse_hcl, API};
 use server::Server;
 use surrealdb::{engine::remote::ws::Ws, opt::auth::Root};
@@ -77,8 +78,13 @@ impl Commands {
                         handle.await?;
                     },
                     "mongodb" => {
-                        let client = mongodb::Client::with_uri_str(mongodb_address.clone()).await.unwrap();
-                        let mut server = Server::new(persistence::mongo::MongoStore::new(client.clone()));
+                        let mut options = ClientOptions::parse(mongodb_address.clone()).await.unwrap();
+                        options.connect_timeout = Some(Duration::from_secs(5));
+                        options.server_selection_timeout = Some(Duration::from_secs(5));
+                        let client = mongodb::Client::with_options(options).unwrap();
+                        let mut store = persistence::mongo::MongoStore::new(client.clone());
+                        store.init().await.unwrap();
+                        let mut server = Server::new(store);
                         server.with_api(api);
 
                         let handle = tokio::spawn(async move {

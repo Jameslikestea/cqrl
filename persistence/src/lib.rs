@@ -5,19 +5,19 @@ use errors::CQRLResult;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use surreal::SurrealStore;
-use surrealdb::{engine::remote::ws::{Client, Ws}, RecordId, Surreal};
+use surrealdb::{engine::remote::ws::Client, RecordId};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SurrealObject {
+pub struct PersistenceObject {
     pub id: RecordId,
     pub metadata: Value,
     pub data: Value,
 }
 pub trait Store: Send + Sync {
-    fn store_operation(&mut self, k: String, v: Value, operation_type: String) -> impl Future<Output = CQRLResult<SurrealObject>> + Send;
+    fn store_operation(&mut self, k: String, v: Value, operation_type: String) -> impl Future<Output = CQRLResult<PersistenceObject>> + Send;
     fn get_object(&self, id: Option<String>, object_type: String) -> impl Future<Output = CQRLResult<Value>> + Send;
     fn store_object(&mut self, k: String, v: Value, object_type: String) -> impl Future<Output = CQRLResult<()>> + Send;
-    fn watch_operation(&mut self) -> impl StreamExt<Item = SurrealObject> + Send;
+    fn watch_operation(&mut self) -> impl StreamExt<Item = PersistenceObject> + Send;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

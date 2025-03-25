@@ -10,7 +10,6 @@ export default function () {
       'Content-Type': 'application/json'
     }
   });
-  console.log(res);
 
   check(res, {
     'status was 202': (res) => res.status === 202

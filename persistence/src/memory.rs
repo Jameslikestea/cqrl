@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use serde_json::Value;
 
-use crate::{Permission, PermissionStore, Store, SurrealObject};
+use crate::{Permission, PermissionStore, Store, PersistenceObject};
 
 #[derive(Clone)]
 pub struct MemoryStore {
@@ -46,18 +46,18 @@ impl Store for MemoryStore {
         Ok(())
     }
 
-    async fn store_operation(&mut self, k: String, v: Value, _: String) -> CQRLResult<crate::SurrealObject> {
+    async fn store_operation(&mut self, k: String, v: Value, _: String) -> CQRLResult<crate::PersistenceObject> {
         let mut store = self.operation_store.write().map_err(|_| errors::CQRLError::StoreError)?;
         store.insert(k.clone(), v.clone());
-        Ok(crate::SurrealObject {
+        Ok(crate::PersistenceObject {
             id: RecordId::from(("command", k.clone())),
             data: v.clone(),
             metadata: Value::Null,
         })
     }
 
-    fn watch_operation(&mut self) -> impl Stream<Item = SurrealObject> + Send {
-        futures::stream::empty::<SurrealObject>()
+    fn watch_operation(&mut self) -> impl Stream<Item = PersistenceObject> + Send {
+        futures::stream::empty::<PersistenceObject>()
     }
 }
 

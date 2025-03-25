@@ -13,62 +13,15 @@ services:
     command: nats sub -s nats://nats:4222 "cqrl.command.>"
     networks:
       - cqrl-network
-  mongodb:
+  mongo1:
     image: mongodb/mongodb-community-server:latest
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: cqrl
-      MONGO_INITDB_ROOT_PASSWORD: cqrl
-      MONGO_INITDB_DATABASE: cqrl
+    user: root
+    command: --replSet rs0 --bind_ip 0.0.0.0 --port 27017
+    healthcheck:
+      test: echo "try { rs.status() } catch (err) { rs.initiate() }" | mongosh mongodb://localhost:27017/cqrl --quiet
+      interval: 5s
+      timeout: 30s
     ports:
       - "27017:27017"
     networks:
       - cqrl-network
-  # surreal:
-  #   image: surrealdb/surrealdb:latest
-  #   ports:
-  #     - "8000:8000"
-  #   command: start --user root --pass root tikv://pd:2379
-  #   environment:
-  #     - SURREALDB_USER=root
-  #     - SURREALDB_PASS=root
-  #   depends_on:
-  #     - tikv
-  #     - pd
-  #   restart: always
-  #   networks:
-  #     - cqrl-network
-
-  # pd:
-  #   image: pingcap/pd:latest
-  #   ports:
-  #     - "22379:2379"
-  #   volumes:
-  #     - pd_data:/data
-  #   command:
-  #     - --name=pd
-  #     - --client-urls=http://0.0.0.0:2379
-  #     - --peer-urls=http://0.0.0.0:2380
-  #     - --advertise-client-urls=http://pd:2379
-  #     - --advertise-peer-urls=http://pd:2380
-  #     - --initial-cluster=pd=http://pd:2380
-  #     - --data-dir=/data/pd
-  #   networks:
-  #     - cqrl-network
-
-  # tikv:
-  #   image: pingcap/tikv:latest
-  #   ports:
-  #     - "20160:20160"
-  #   volumes:
-  #     - tikv_data:/data
-  #   command:
-  #     - --addr=0.0.0.0:20160
-  #     - --advertise-addr=tikv:20160
-  #     - --pd=pd:2379
-  #     - --data-dir=/data/tikv
-  #   networks:
-  #     - cqrl-network
-
-volumes:
-  pd_data:
-  tikv_data:
