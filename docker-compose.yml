@@ -18,9 +18,11 @@ services:
     user: root
     command: --replSet rs0 --bind_ip 0.0.0.0 --port 27017
     healthcheck:
-      test: echo "try { rs.status() } catch (err) { rs.initiate() }" | mongosh mongodb://localhost:27017/cqrl --quiet
+      test: cat /mongo-healthcheck.js | mongosh mongodb://localhost:27017/cqrl --quiet
       interval: 5s
       timeout: 30s
+    volumes:
+      - ./mongo-healthcheck.js:/mongo-healthcheck.js
     ports:
       - "27017:27017"
     networks:
