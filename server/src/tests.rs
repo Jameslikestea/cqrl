@@ -86,7 +86,7 @@ mod handler_tests {
         assert_eq!(response.status(), StatusCode::ACCEPTED);
         assert_eq!(
             response.headers().get("x-command-id").unwrap(),
-            "1234"
+            "test"
         );
     }
 
