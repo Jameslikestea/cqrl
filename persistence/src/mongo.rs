@@ -1,6 +1,6 @@
 use errors::CQRLResult;
 use futures::channel::mpsc;
-use mongodb::{bson::doc, Client, IndexModel};
+use mongodb::{bson::{self, doc}, Client, IndexModel};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use surrealdb::RecordId;
@@ -60,6 +60,21 @@ impl Store for MongoStore {
     }
     
     async fn store_object(&mut self, _k: String, _v: serde_json::Value, _object_type: String) -> errors::CQRLResult<()> {
+        let id = ulid::Ulid::new().to_string();
+
+        let query = doc!{
+            "metadata.id": _k,
+        };
+
+        let update = doc!{
+            "$setOnInsert": {
+                "_id": id,
+            },
+            "$set": bson::to_bson(&_v).unwrap(),
+        };
+
+        self.client.database("cqrl").collection::<MongoObject>("objects").update_one(query, update).upsert(true).await.unwrap();
+        println!("Stored object: {:?}", _v);
         Ok(())
     }
     

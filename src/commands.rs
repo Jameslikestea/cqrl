@@ -5,6 +5,8 @@ use clap::Subcommand;
 use events::EventEmitter;
 use mongodb::options::ClientOptions;
 use parser::{parse_hcl::parse_hcl, API};
+use serde_json::Value;
+use futures::StreamExt;
 use server::Server;
 use surrealdb::{engine::remote::ws::Ws, opt::auth::Root};
 
@@ -87,12 +89,26 @@ impl Commands {
                         let mut server = Server::new(store);
                         server.with_api(api);
 
+                        let send_client = client.clone();
+                        let recv_client = client.clone();
+
+                        let send_nats = nats_client.clone();
+                        let recv_nats = nats_client.clone();
+
                         let handle = tokio::spawn(async move {
-                            let mut sender = events::nats::NatsEventEmitter::new(persistence::mongo::MongoStore::new(client.clone()), nats_client.clone());
-                            sender.run().await.unwrap();
+                            let mut local_sender = events::nats::NatsEventEmitter::new(persistence::mongo::MongoStore::new(send_client), send_nats);
+                            local_sender.run().await.unwrap();
+                        });
+                        let handle_listen = tokio::spawn(async move {
+                            let mut local_sender = events::nats::NatsEventEmitter::new(persistence::mongo::MongoStore::new(recv_client), recv_nats);
+                            let mut stream = local_sender.listen(Value::Null);
+                            while let Some(event) = stream.next().await {
+                                println!("Recieved event: {:?}", event);
+                            }
                         });
                         server.serve().await;
                         handle.await?;
+                        handle_listen.await?;
                     },
                     mode => {
                         println!("Unsupported database type: {}", mode);

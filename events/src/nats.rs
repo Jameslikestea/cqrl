@@ -5,8 +5,7 @@ use errors::CQRLResult;
 use persistence::PersistenceObject;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use futures::StreamExt;
-use tokio;
+use futures::{channel::mpsc, StreamExt, SinkExt};
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,7 +33,6 @@ impl<S> crate::EventEmitter<S> for NatsEventEmitter<S> where S: persistence::Sto
             let mut emitter = self.clone();
             emitter.emit(event).unwrap();
         }
-
         Ok(())
     }
 
@@ -71,7 +69,31 @@ impl<S> crate::EventEmitter<S> for NatsEventEmitter<S> where S: persistence::Sto
         Ok(())
     }
 
-    fn listen(self: &mut Self, _event: Value) -> CQRLResult<()> {
-        Ok(())
+    fn listen(self: &mut Self, _event: Value) -> impl StreamExt<Item = PersistenceObject> + Send {
+        let (mut tx, rx) = mpsc::unbounded();
+
+        let client = self.client.clone().unwrap();
+        tokio::spawn(async move {
+            let mut subscription = client.subscribe("cqrl.update.*").await.unwrap();
+            while let Some(message) = subscription.next().await {
+                let event = match serde_json::from_slice::<persistence::PersistenceObject>(&message.payload) {
+                    Ok(event) => event,
+                    Err(err) => {
+                        println!("Error recieving event on {}: {:?}", message.subject, err);
+                        continue;
+                    }
+                };
+                match tx.send(event).await {
+                    Ok(_) => {
+                        println!("Recieved event on {}", message.subject);
+                    },
+                    Err(err) => {
+                        println!("Error recieving event on {}: {:?}", message.subject, err);
+                    }
+                }
+            }
+        });
+
+        rx
     }
 }
