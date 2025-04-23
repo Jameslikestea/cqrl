@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cloudevents-sdk = "0.8.0"
 errors = { version = "0.1.0", path = "../errors" }
 futures = "0.3.31"
 indexmap = "2.7.1"

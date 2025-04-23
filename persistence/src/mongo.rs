@@ -1,3 +1,4 @@
+use cloudevents::{AttributesReader, Data, Event};
 use errors::CQRLResult;
 use futures::channel::mpsc;
 use mongodb::{bson::{self, doc}, Client, IndexModel};
@@ -31,6 +32,12 @@ impl Into<PersistenceObject> for MongoObject{
     }
 }
 
+impl From<PersistenceObject> for MongoObject {
+    fn from(object: PersistenceObject) -> Self {
+        Self { id: object.id.key().to_string(), metadata: object.metadata, data: object.data }
+    }
+}
+
 impl MongoStore {
     pub fn new(client: Client) -> Self {
         Self { client }
@@ -55,26 +62,71 @@ impl Store for MongoStore {
         Ok(mongo_object.into())
     }
     
-    async fn get_object(&self, _id: Option<String>, _object_type: String) -> CQRLResult<serde_json::Value> {
-        Ok(Value::Null)
+    async fn get_object(&self, id: Option<String>, object_type: String) -> CQRLResult<serde_json::Value> {
+        let query = match id {
+            Some(id) => doc!{
+                "metadata.type": object_type,
+                "_id": id,
+            },
+            None => doc!{
+                "metadata.type": object_type,
+            }
+        };
+
+        let mut object = self.client.database("cqrl").collection::<MongoObject>("objects").find(query).limit(100).skip(0).await.unwrap();
+        let mut objects = Vec::new();
+        while let Some(obj) = object.next().await {
+            objects.push(obj.unwrap().data);
+        }
+
+        Ok(Value::Array(objects))
     }
     
-    async fn store_object(&mut self, _k: String, _v: serde_json::Value, _object_type: String) -> errors::CQRLResult<()> {
+    async fn store_object(&mut self, _k: String, evt: Event) -> errors::CQRLResult<()> {
         let id = ulid::Ulid::new().to_string();
+        let ty = evt.ty().split(".").last().unwrap().to_string();
 
         let query = doc!{
-            "metadata.id": _k,
+            "metadata.parent": _k.clone(),
+            "metadata.type": ty.clone(),
+        };
+
+        let data = match evt.data() {
+            Some(data) => match data {
+                Data::Json(json) => json.clone(),
+                Data::String(string) => serde_json::from_str(&string).unwrap(),
+                Data::Binary(binary) => serde_json::from_slice(&binary).unwrap(),
+            },
+            None => serde_json::from_str("").unwrap(),
+        };
+
+        let _id = match data.clone() {
+            Value::Object(object) => {
+                match object.get("id") {
+                    Some(id) => id.to_string(),
+                    None => id,
+                }
+            },
+            _ => id,
         };
 
         let update = doc!{
             "$setOnInsert": {
-                "_id": id,
+                "_id": _id,
             },
-            "$set": bson::to_bson(&_v).unwrap(),
+            "$set": {
+                "metadata": {
+                    "parent": _k.clone(),
+                    "type": ty.clone(),
+                    "source": evt.source(),
+                    "time": evt.time().unwrap().to_rfc3339(),
+                },
+                "data": bson::to_bson(&data).unwrap(),
+            },
         };
 
         self.client.database("cqrl").collection::<MongoObject>("objects").update_one(query, update).upsert(true).await.unwrap();
-        println!("Stored object: {:?}", _v);
+        println!("Stored object: {:?}", evt);
         Ok(())
     }
     

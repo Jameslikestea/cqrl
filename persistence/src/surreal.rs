@@ -1,3 +1,4 @@
+use cloudevents::Event;
 use errors::{CQRLError, CQRLResult};
 use futures::{SinkExt, Stream};
 use serde::{Deserialize, Serialize};
@@ -74,7 +75,7 @@ impl<S> Store for SurrealStore<S> where S: Connection {
         }).collect()))
     }
 
-    async fn store_object(&mut self, _key: String, _value: Value, _object_type: String) -> CQRLResult<()> {
+    async fn store_object(&mut self, _key: String, _value: Event) -> CQRLResult<()> {
         Ok(())
     }
 

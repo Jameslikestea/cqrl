@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 axum = "0.8.1"
+cloudevents-sdk = "0.8.0"
 futures = "0.3.31"
 http-body-util = "0.1.2"
 hyper = { version = "1.6.0", features = ["full"] }

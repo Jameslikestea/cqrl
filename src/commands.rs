@@ -2,6 +2,7 @@ use std::{error::Error, fs, time::Duration};
 
 use crate::commands_generate::GenerateCommand;
 use clap::Subcommand;
+use cloudevents::AttributesReader;
 use events::EventEmitter;
 use mongodb::options::ClientOptions;
 use parser::{parse_hcl::parse_hcl, API};
@@ -9,6 +10,7 @@ use serde_json::Value;
 use futures::StreamExt;
 use server::Server;
 use surrealdb::{engine::remote::ws::Ws, opt::auth::Root};
+use persistence::Store;
 
 #[derive(Debug, Clone, Subcommand)]
 pub(crate) enum Commands {
@@ -100,10 +102,12 @@ impl Commands {
                             local_sender.run().await.unwrap();
                         });
                         let handle_listen = tokio::spawn(async move {
-                            let mut local_sender = events::nats::NatsEventEmitter::new(persistence::mongo::MongoStore::new(recv_client), recv_nats);
+                            let mut local_store = persistence::mongo::MongoStore::new(recv_client);
+                            let mut local_sender = events::nats::NatsEventEmitter::new(local_store.clone(), recv_nats);
                             let mut stream = local_sender.listen(Value::Null);
                             while let Some(event) = stream.next().await {
                                 println!("Recieved event: {:?}", event);
+                                local_store.store_object(event.id().to_string(), event).await.unwrap();
                             }
                         });
                         server.serve().await;

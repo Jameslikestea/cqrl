@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use cloudevents::EventBuilder;
+use cloudevents::{Event, EventBuilder};
 use errors::CQRLResult;
 use persistence::PersistenceObject;
 use serde::{Deserialize, Serialize};
@@ -50,8 +50,8 @@ impl<S> crate::EventEmitter<S> for NatsEventEmitter<S> where S: persistence::Sto
         let event = cloudevents::EventBuilderV10::new()
             .id(event.id.key().to_string())
             .ty("cqrl.command")
-            .source(source.clone())
-            .data(source.clone(), event.data)
+            .source(format!("/cqrl/operation/{}/{}", source.clone(), id.clone()))
+            .data("application/json", event.data)
             .time(ts)
             .build();
 
@@ -69,14 +69,14 @@ impl<S> crate::EventEmitter<S> for NatsEventEmitter<S> where S: persistence::Sto
         Ok(())
     }
 
-    fn listen(self: &mut Self, _event: Value) -> impl StreamExt<Item = PersistenceObject> + Send {
+    fn listen(self: &mut Self, _event: Value) -> impl StreamExt<Item = Event> + Send {
         let (mut tx, rx) = mpsc::unbounded();
 
         let client = self.client.clone().unwrap();
         tokio::spawn(async move {
             let mut subscription = client.subscribe("cqrl.update.*").await.unwrap();
             while let Some(message) = subscription.next().await {
-                let event = match serde_json::from_slice::<persistence::PersistenceObject>(&message.payload) {
+                let event = match serde_json::from_slice::<cloudevents::Event>(&message.payload) {
                     Ok(event) => event,
                     Err(err) => {
                         println!("Error recieving event on {}: {:?}", message.subject, err);
