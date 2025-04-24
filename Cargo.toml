@@ -13,13 +13,15 @@ serde_json = "1.0.137"
 server = { version = "0.1.0", path = "server" }
 tokio = { version = "1.43.0", features = ["full"] }
 surrealdb = { version = "2.1.4", features = ["http", "protocol-http"] }
-events = { version = "0.1.0", path = "events" }
 futures = "0.3.31"
 async-nats = "0.39.0"
 mongodb = "3.2.2"
 cloudevents-sdk = "0.8.0"
 openapiv3 = "2.0.0"
 indexmap = "2.9.0"
+serde = "1.0.219"
+chrono = "0.4.40"
+ulid = "1.2.1"
 
 [workspace]
-members = [ "errors", "events","parser", "persistence", "server"]
+members = ["errors","parser", "persistence", "server"]

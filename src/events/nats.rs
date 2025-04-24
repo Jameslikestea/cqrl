@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use cloudevents::{Event, EventBuilder};
+use cloudevents::{AttributesReader, Event, EventBuilder};
 use errors::CQRLResult;
 use persistence::PersistenceObject;
 use serde::{Deserialize, Serialize};
@@ -24,7 +24,7 @@ impl<S> NatsEventEmitter<S> where S: persistence::Store + Clone {
     }
 }
 
-impl<S> crate::EventEmitter<S> for NatsEventEmitter<S> where S: persistence::Store + Clone {
+impl<S> super::EventEmitter<S> for NatsEventEmitter<S> where S: persistence::Store + Clone {
     async fn run(self: &mut Self) -> CQRLResult<()> {
         let mut store = self.store.clone();
         let stream = store.watch_operation();
@@ -50,7 +50,7 @@ impl<S> crate::EventEmitter<S> for NatsEventEmitter<S> where S: persistence::Sto
         let event = cloudevents::EventBuilderV10::new()
             .id(event.id.key().to_string())
             .ty("cqrl.command")
-            .source(format!("/cqrl/operation/{}/{}", source.clone(), id.clone()))
+            .source(format!("urn:cqrl:operation:{}:{}", source.clone(), id.clone()))
             .data("application/json", event.data)
             .time(ts)
             .build();
@@ -77,7 +77,28 @@ impl<S> crate::EventEmitter<S> for NatsEventEmitter<S> where S: persistence::Sto
             let mut subscription = client.subscribe("cqrl.update.*").await.unwrap();
             while let Some(message) = subscription.next().await {
                 let event = match serde_json::from_slice::<cloudevents::Event>(&message.payload) {
-                    Ok(event) => event,
+                    Ok(event) => {
+                        // Validate the event
+                        if ulid::Ulid::from_string(event.id()).is_err() {
+                            println!("Event received with invalid ID: {}, skipping. IDs should be a valid ULID", event.id());
+                            continue;
+                        }
+
+                        match event.subject() {
+                            Some(subject) => {
+                                if ulid::Ulid::from_string(subject).is_err() {
+                                    println!("Event received with invalid subject: {}, skipping. Subjects should be a valid ULID", subject);
+                                    continue;
+                                }
+                            },
+                            None => {
+                                println!("Event received with no subject: {}, skipping. Subjects should be a valid ULID", event.id());
+                                continue;
+                            }
+                        }
+
+                        event
+                    },
                     Err(err) => {
                         println!("Error recieving event on {}: {:?}", message.subject, err);
                         continue;

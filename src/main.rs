@@ -5,6 +5,7 @@ use clap::Parser;
 mod commands;
 mod commands_generate;
 mod openapigenerator;
+mod events;
 
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about=None)]

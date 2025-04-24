@@ -114,7 +114,7 @@ impl PermissionStore for MemoryStore {
 mod tests {
     use super::MemoryStore;
     use crate::Store;
-    use cloudevents::{Event, EventBuilder, EventBuilderV10};
+    use cloudevents::{EventBuilder, EventBuilderV10};
     use serde_json::json;
 
     #[tokio::test]

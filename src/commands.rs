@@ -3,7 +3,7 @@ use std::{error::Error, fs, time::Duration};
 use crate::commands_generate::GenerateCommand;
 use clap::Subcommand;
 use cloudevents::AttributesReader;
-use events::EventEmitter;
+use crate::events::EventEmitter;
 use mongodb::options::ClientOptions;
 use parser::{parse_hcl::parse_hcl, API};
 use serde_json::Value;
@@ -74,7 +74,7 @@ impl Commands {
                         server.with_api(api);
 
                         let handle = tokio::spawn(async move {
-                            let mut sender = events::nats::NatsEventEmitter::new(persistence::surreal::SurrealStore::new(db.clone()), nats_client.clone());
+                            let mut sender = crate::events::nats::NatsEventEmitter::new(persistence::surreal::SurrealStore::new(db.clone()), nats_client.clone());
                             sender.run().await.unwrap();
                         });
 
@@ -98,16 +98,23 @@ impl Commands {
                         let recv_nats = nats_client.clone();
 
                         let handle = tokio::spawn(async move {
-                            let mut local_sender = events::nats::NatsEventEmitter::new(persistence::mongo::MongoStore::new(send_client), send_nats);
+                            let mut local_sender = crate::events::nats::NatsEventEmitter::new(persistence::mongo::MongoStore::new(send_client), send_nats);
                             local_sender.run().await.unwrap();
                         });
                         let handle_listen = tokio::spawn(async move {
                             let mut local_store = persistence::mongo::MongoStore::new(recv_client);
-                            let mut local_sender = events::nats::NatsEventEmitter::new(local_store.clone(), recv_nats);
+                            let mut local_sender = crate::events::nats::NatsEventEmitter::new(local_store.clone(), recv_nats);
                             let mut stream = local_sender.listen(Value::Null);
                             while let Some(event) = stream.next().await {
                                 println!("Recieved event: {:?}", event);
-                                local_store.store_object(event.id().to_string(), event).await.unwrap();
+                                match local_store.store_object(event.id().to_string(), event.clone()).await {
+                                    Ok(_) => {
+                                        println!("Stored event: {:?}", event.id());
+                                    },
+                                    Err(err) => {
+                                        println!("Error storing event: {:?}", err);
+                                    }
+                                };
                             }
                         });
                         server.serve().await;

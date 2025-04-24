@@ -85,10 +85,20 @@ impl Store for MongoStore {
     async fn store_object(&mut self, _k: String, evt: Event) -> errors::CQRLResult<()> {
         let id = ulid::Ulid::new().to_string();
         let ty = evt.ty().split(".").last().unwrap().to_string();
-
-        let query = doc!{
-            "metadata.parent": _k.clone(),
-            "metadata.type": ty.clone(),
+        
+        let (_id, query) = match evt.subject() {
+            Some(subject) => (subject.to_string(), doc!{
+                "metadata.type": ty.clone(),
+                // Check that we've not already processed this event for this subject
+                "metadata.lineage": {
+                    "$nin": vec![evt.id()],
+                },
+                "_id": subject.to_string(),
+            }),
+            None => {
+                println!("No subject found for event: {:?}", evt.id());
+                return Err(errors::CQRLError::Generic);
+            },
         };
 
         let data = match evt.data() {
@@ -100,34 +110,31 @@ impl Store for MongoStore {
             None => serde_json::from_str("").unwrap(),
         };
 
-        let _id = match data.clone() {
-            Value::Object(object) => {
-                match object.get("id") {
-                    Some(id) => id.to_string(),
-                    None => id,
-                }
-            },
-            _ => id,
-        };
 
         let update = doc!{
             "$setOnInsert": {
                 "_id": _id,
             },
+            "$addToSet": {
+                "metadata.lineage": evt.id(),
+            },
             "$set": {
-                "metadata": {
-                    "parent": _k.clone(),
-                    "type": ty.clone(),
-                    "source": evt.source(),
-                    "time": evt.time().unwrap().to_rfc3339(),
-                },
+                "metadata.type": ty.clone(),
+                "metadata.time": evt.time().unwrap().to_rfc3339(),
                 "data": bson::to_bson(&data).unwrap(),
             },
         };
 
-        self.client.database("cqrl").collection::<MongoObject>("objects").update_one(query, update).upsert(true).await.unwrap();
-        println!("Stored object: {:?}", evt);
-        Ok(())
+        match self.client.database("cqrl").collection::<MongoObject>("objects").update_one(query, update).upsert(true).await {
+            Ok(result) => {
+                println!("Stored object: {:?}. Modified: {:?}", evt, result.modified_count);
+                Ok(())
+            },
+            Err(err) => {
+                println!("Error storing object: {:?}", err);
+                Err(errors::CQRLError::StoreError)
+            }
+        }
     }
     
     fn watch_operation(&mut self) -> impl futures::StreamExt<Item = crate::PersistenceObject> + Send {
