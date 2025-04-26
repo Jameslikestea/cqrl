@@ -1,13 +1,12 @@
 use cloudevents::{Data, Event};
 use errors::CQRLResult;
 use futures::Stream;
-use surrealdb::RecordId;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 use serde_json::Value;
 
-use crate::{Permission, PermissionStore, Store, PersistenceObject};
+use super::{Permission, PermissionStore, Store, PersistenceObject};
 
 #[derive(Clone)]
 pub struct MemoryStore {
@@ -55,11 +54,11 @@ impl Store for MemoryStore {
         Ok(())
     }
 
-    async fn store_operation(&mut self, k: String, v: Value, _: String) -> CQRLResult<crate::PersistenceObject> {
+    async fn store_operation(&mut self, k: String, v: Value, _: String) -> CQRLResult<super::PersistenceObject> {
         let mut store = self.operation_store.write().map_err(|_| errors::CQRLError::StoreError)?;
         store.insert(k.clone(), v.clone());
-        Ok(crate::PersistenceObject {
-            id: RecordId::from(("command", k.clone())),
+        Ok(super::PersistenceObject {
+            id: k.clone(),
             data: v.clone(),
             metadata: Value::Null,
         })
@@ -113,7 +112,7 @@ impl PermissionStore for MemoryStore {
 #[cfg(test)]
 mod tests {
     use super::MemoryStore;
-    use crate::Store;
+    use super::Store;
     use cloudevents::{EventBuilder, EventBuilderV10};
     use serde_json::json;
 
@@ -126,10 +125,12 @@ mod tests {
                 .store_object(
                     "value".to_string(),
                     EventBuilderV10::new()
+                        .id("ABCDEF")
                         .ty("test")
                         .data("application/json", json!({
                             "test": "value"
                         }))
+                        .source("ABCDEF")
                         .build().unwrap()
                 )
                 .await
@@ -182,10 +183,12 @@ mod tests {
                 .store_object(
                     "value".to_string(),
                     EventBuilderV10::new()
+                        .id("ABCDEF")
                         .ty("test")
                         .data("application/json", json!({
                             "test": "value"
                         }))
+                        .source("ABCDEF")
                         .build().unwrap(),
                 )
                 .await

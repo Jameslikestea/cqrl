@@ -1,6 +1,6 @@
 use std::{error::Error, fs, time::Duration};
 
-use crate::commands_generate::GenerateCommand;
+use crate::{commands_generate::GenerateCommand, events::nats::NatsEventEmitter, persistence::mongo::MongoStore};
 use clap::Subcommand;
 use cloudevents::AttributesReader;
 use crate::events::EventEmitter;
@@ -8,9 +8,8 @@ use mongodb::options::ClientOptions;
 use parser::{parse_hcl::parse_hcl, API};
 use serde_json::Value;
 use futures::StreamExt;
-use server::Server;
-use surrealdb::{engine::remote::ws::Ws, opt::auth::Root};
-use persistence::Store;
+use crate::server::Server;
+use crate::persistence::Store;
 
 #[derive(Debug, Clone, Subcommand)]
 pub(crate) enum Commands {
@@ -63,30 +62,12 @@ impl Commands {
                 let nats_client = async_nats::connect(nats_address).await.unwrap();
                 
                 match database_mode.as_str() {
-                    "surreal" => {
-                        let db = surrealdb::Surreal::new::<Ws>(surreal_address.clone()).await.unwrap();
-                        db.signin(Root{
-                            username: "root",
-                            password: "root",
-                        }).await?;
-                        db.use_ns("test").use_db("test").await?;
-                        let mut server = Server::new(persistence::surreal::SurrealStore::new(db.clone()));
-                        server.with_api(api);
-
-                        let handle = tokio::spawn(async move {
-                            let mut sender = crate::events::nats::NatsEventEmitter::new(persistence::surreal::SurrealStore::new(db.clone()), nats_client.clone());
-                            sender.run().await.unwrap();
-                        });
-
-                        server.serve().await;
-                        handle.await?;
-                    },
                     "mongodb" => {
                         let mut options = ClientOptions::parse(mongodb_address.clone()).await.unwrap();
                         options.connect_timeout = Some(Duration::from_secs(5));
                         options.server_selection_timeout = Some(Duration::from_secs(5));
                         let client = mongodb::Client::with_options(options).unwrap();
-                        let mut store = persistence::mongo::MongoStore::new(client.clone());
+                        let mut store = MongoStore::new(client.clone());
                         store.init().await.unwrap();
                         let mut server = Server::new(store);
                         server.with_api(api);
@@ -98,12 +79,12 @@ impl Commands {
                         let recv_nats = nats_client.clone();
 
                         let handle = tokio::spawn(async move {
-                            let mut local_sender = crate::events::nats::NatsEventEmitter::new(persistence::mongo::MongoStore::new(send_client), send_nats);
+                            let mut local_sender = crate::events::nats::NatsEventEmitter::new(MongoStore::new(send_client), send_nats);
                             local_sender.run().await.unwrap();
                         });
                         let handle_listen = tokio::spawn(async move {
-                            let mut local_store = persistence::mongo::MongoStore::new(recv_client);
-                            let mut local_sender = crate::events::nats::NatsEventEmitter::new(local_store.clone(), recv_nats);
+                            let mut local_store = MongoStore::new(recv_client);
+                            let mut local_sender = NatsEventEmitter::new(local_store.clone(), recv_nats);
                             let mut stream = local_sender.listen(Value::Null);
                             while let Some(event) = stream.next().await {
                                 println!("Recieved event: {:?}", event);

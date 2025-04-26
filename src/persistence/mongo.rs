@@ -4,10 +4,9 @@ use futures::channel::mpsc;
 use mongodb::{bson::{self, doc}, Client, IndexModel};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use surrealdb::RecordId;
 use tokio::task;
 use futures::{StreamExt, SinkExt};
-use crate::{Store, PersistenceObject};
+use super::{Store, PersistenceObject};
 
 #[derive(Clone)]
 pub struct MongoStore {
@@ -25,7 +24,7 @@ struct MongoObject {
 impl Into<PersistenceObject> for MongoObject{
     fn into(self) -> PersistenceObject {
         PersistenceObject {
-            id: RecordId::from(("operation", self.id)),
+            id: self.id,
             metadata: self.metadata,
             data: self.data,
         }
@@ -34,7 +33,7 @@ impl Into<PersistenceObject> for MongoObject{
 
 impl From<PersistenceObject> for MongoObject {
     fn from(object: PersistenceObject) -> Self {
-        Self { id: object.id.key().to_string(), metadata: object.metadata, data: object.data }
+        Self { id: object.id, metadata: object.metadata, data: object.data }
     }
 }
 
@@ -137,7 +136,7 @@ impl Store for MongoStore {
         }
     }
     
-    fn watch_operation(&mut self) -> impl futures::StreamExt<Item = crate::PersistenceObject> + Send {
+    fn watch_operation(&mut self) -> impl futures::StreamExt<Item = super::PersistenceObject> + Send {
         let (mut _sender, receiver) = mpsc::unbounded();
 
         let client = self.client.clone();

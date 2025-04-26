@@ -5,19 +5,17 @@ use futures::StreamExt;
 use errors::CQRLResult;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use surreal::SurrealStore;
-use surrealdb::{engine::remote::ws::Client, RecordId};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistenceObject {
-    pub id: RecordId,
+    pub id: String,
     pub metadata: Value,
     pub data: Value,
 }
 
 impl From<cloudevents::Event> for PersistenceObject {
     fn from(event: cloudevents::Event) -> Self {
-        Self { id: RecordId::from(("operation", event.id())), metadata: serde_json::json!({
+        Self { id: event.id().to_string(), metadata: serde_json::json!({
             "type": event.ty(),
             "source": event.source(),
             "time": event.time(),
@@ -49,10 +47,5 @@ pub trait PermissionStore: Send + Sync {
     fn revoke(&mut self, id: String, user: String, permission: Permission) -> impl Future<Output = CQRLResult<()>> + Send;
 }
 
-pub enum StoreEnum {
-    Surreal(SurrealStore<Client>),
-}
-
 pub mod memory;
-pub mod surreal;
 pub mod mongo;

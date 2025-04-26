@@ -2,20 +2,20 @@ use std::sync::Arc;
 
 use cloudevents::{AttributesReader, Event, EventBuilder};
 use errors::CQRLResult;
-use persistence::PersistenceObject;
+use crate::persistence::{PersistenceObject, Store};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use futures::{channel::mpsc, StreamExt, SinkExt};
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NatsEventEmitter<S> where S: persistence::Store + Clone {
+pub struct NatsEventEmitter<S> where S: Store + Clone {
     store: S,
     #[serde(skip)]
     client: Option<Arc<async_nats::Client>>,
 }
 
-impl<S> NatsEventEmitter<S> where S: persistence::Store + Clone {
+impl<S> NatsEventEmitter<S> where S: Store + Clone {
     pub fn new(store: S, client: async_nats::Client) -> Self {
         Self { 
             store, 
@@ -24,7 +24,7 @@ impl<S> NatsEventEmitter<S> where S: persistence::Store + Clone {
     }
 }
 
-impl<S> super::EventEmitter<S> for NatsEventEmitter<S> where S: persistence::Store + Clone {
+impl<S> super::EventEmitter<S> for NatsEventEmitter<S> where S: Store + Clone {
     async fn run(self: &mut Self) -> CQRLResult<()> {
         let mut store = self.store.clone();
         let stream = store.watch_operation();
@@ -38,7 +38,7 @@ impl<S> super::EventEmitter<S> for NatsEventEmitter<S> where S: persistence::Sto
 
     fn emit(self: &mut Self, event: PersistenceObject) -> CQRLResult<()> {
         let source = event.metadata.get("type").unwrap_or(&Value::String(String::from("unknown"))).as_str().unwrap().to_string();
-        let id = event.id.key().to_string();
+        let id = event.id.clone();
 
         println!("emitting event: {:?}", id);
 
@@ -48,7 +48,7 @@ impl<S> super::EventEmitter<S> for NatsEventEmitter<S> where S: persistence::Sto
         let ts = chrono::DateTime::from_timestamp_millis(timestamp.try_into().unwrap()).unwrap();
 
         let event = cloudevents::EventBuilderV10::new()
-            .id(event.id.key().to_string())
+            .id(event.id.clone())
             .ty("cqrl.command")
             .source(format!("urn:cqrl:operation:{}:{}", source.clone(), id.clone()))
             .data("application/json", event.data)

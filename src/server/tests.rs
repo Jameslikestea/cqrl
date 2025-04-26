@@ -1,6 +1,6 @@
 use super::*;
 use parser::{Command, Query};
-use persistence::{memory::MemoryStore, Store};
+use crate::persistence::{memory::MemoryStore, Store};
 use serde_json::json;
 
 #[tokio::test]
@@ -95,7 +95,7 @@ mod handler_tests {
     async fn test_query_handler() {
         let mut store = MemoryStore::new();
         // Pre-populate store with test data
-        store.store_object("test".to_string(), EventBuilderV10::new().ty("command").data("application/json", json!({"test": "value"})).build().unwrap()).await.unwrap();
+        store.store_object("test".to_string(), EventBuilderV10::new().id("ABCDEF").ty("command").source("ABCDEF").data("application/json", json!({"test": "value"})).build().unwrap()).await.unwrap();
 
         let api_hcl = r#"
         query "test" {
