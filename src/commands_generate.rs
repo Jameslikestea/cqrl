@@ -49,7 +49,7 @@ fn generate_openapi(input: String, output: String) {
         }
     };
 
-    let openapi = openapigenerator::generate_openapi_spec(api);
+    let openapi = crate::openapigenerator::generate_openapi_spec(api);
     // println!("Parsed input: {:#?}", openapi);
     let openapi_string = serde_json::to_string_pretty(&openapi).unwrap();
     fs::write(output, openapi_string).unwrap();

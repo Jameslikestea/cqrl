@@ -7,17 +7,19 @@ use parser::API;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::net::TcpListener;
 
+use crate::persistence::Store;
+
 #[cfg(test)]
 mod tests;
 
 #[derive(Clone)]
-pub struct Server<S> where S: persistence::Store + Clone + Send + Sync + 'static {
+pub struct Server<S> where S: Store + Clone + Send + Sync + 'static {
     port: u16,
     api: Arc<API>,
     state: ServerState<S>,
 }
 
-impl<S> Server<S> where S: persistence::Store + Clone + Send + Sync + 'static {
+impl<S> Server<S> where S: Store + Clone + Send + Sync + 'static {
     pub fn new(store: S) -> Self {
         Server {
             port: 8912,
@@ -56,20 +58,22 @@ mod handlers {
     use hyper::StatusCode;
 
 
-    use crate::ServerState;
+    use crate::persistence::Store;
 
-    pub async fn root<S>(_state: State<ServerState<S>>) -> impl IntoResponse where S: persistence::Store + Clone + Send + Sync + 'static {
+    use super::ServerState;
+
+    pub async fn root<S>(_state: State<ServerState<S>>) -> impl IntoResponse where S: Store + Clone + Send + Sync + 'static {
         (StatusCode::OK, Json("hello, world!"))
     }
     pub async fn command<S>(State(mut _state): State<ServerState<S>>, Path((command_type,)): Path<(String,)>, Json(_command): Json<serde_json::Value>) -> impl IntoResponse 
     where 
-        S: persistence::Store + Clone + Send + Sync + 'static,
+        S: Store + Clone + Send + Sync + 'static,
     {
         match _state.store.store_operation(command_type.clone(), _command, command_type.clone()).await {
             Ok(object) => {
                 Response::builder()
                     .status(StatusCode::ACCEPTED)
-                    .header("x-command-id", object.id.key().to_string())
+                    .header("x-command-id", object.id)
                     .body(Body::empty())
                     .unwrap()
             },
@@ -85,7 +89,7 @@ mod handlers {
     }
     pub async fn query<S>(Path(_query): Path<String>, State(_state): State<ServerState<S>>) -> impl IntoResponse 
     where 
-        S: persistence::Store + Clone + Send + Sync + 'static,
+        S: Store + Clone + Send + Sync + 'static,
     {
 
         let values = _state.store.get_object(None, _query).await.unwrap();
@@ -99,12 +103,12 @@ mod handlers {
 }
 
 #[derive(Debug, Clone)]
-struct ServerState<S> where S: persistence::Store + Clone + Send + Sync + 'static {
+struct ServerState<S> where S: Store + Clone + Send + Sync + 'static {
     api: Arc<API>,
     store: S,
 }
 
-impl<S> ServerState<S> where S: persistence::Store + Clone + Send + Sync + 'static {
+impl<S> ServerState<S> where S: Store + Clone + Send + Sync + 'static {
     pub fn new(api: Arc<API>, store: S) -> Self {
         ServerState { 
             api,

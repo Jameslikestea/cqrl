@@ -1,0 +1,15 @@
+use std::future::Future;
+
+use cloudevents::Event;
+use errors::CQRLResult;
+use futures::StreamExt;
+use crate::persistence::{PersistenceObject, Store};
+use serde_json::Value;
+
+pub trait EventEmitter<S>: Send + Sync where S: Store {
+    fn run(self: &mut Self) -> impl Future<Output = CQRLResult<()>> + Send;
+    fn emit(self: &mut Self, event: PersistenceObject) -> CQRLResult<()>;
+    fn listen(self: &mut Self, event: Value) -> impl StreamExt<Item = Event> + Send;
+}
+
+pub mod nats;

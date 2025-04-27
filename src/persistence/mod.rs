@@ -1,22 +1,36 @@
 use std::future::Future;
+use cloudevents::{AttributesReader, Data, Event};
 use futures::StreamExt;
 
 use errors::CQRLResult;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use surreal::SurrealStore;
-use surrealdb::{engine::remote::ws::Client, RecordId};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistenceObject {
-    pub id: RecordId,
+    pub id: String,
     pub metadata: Value,
     pub data: Value,
 }
+
+impl From<cloudevents::Event> for PersistenceObject {
+    fn from(event: cloudevents::Event) -> Self {
+        Self { id: event.id().to_string(), metadata: serde_json::json!({
+            "type": event.ty(),
+            "source": event.source(),
+            "time": event.time(),
+        }), data: match event.data().unwrap() {
+            Data::Json(json) => json.clone(),
+            Data::Binary(binary) => serde_json::from_slice(&binary).unwrap(),
+            Data::String(string) => serde_json::from_str(&string).unwrap(),
+        } }
+    }
+}
+
 pub trait Store: Send + Sync {
     fn store_operation(&mut self, k: String, v: Value, operation_type: String) -> impl Future<Output = CQRLResult<PersistenceObject>> + Send;
     fn get_object(&self, id: Option<String>, object_type: String) -> impl Future<Output = CQRLResult<Value>> + Send;
-    fn store_object(&mut self, k: String, v: Value, object_type: String) -> impl Future<Output = CQRLResult<()>> + Send;
+    fn store_object(&mut self, k: String, v: Event) -> impl Future<Output = CQRLResult<()>> + Send;
     fn watch_operation(&mut self) -> impl StreamExt<Item = PersistenceObject> + Send;
 }
 
@@ -33,10 +47,5 @@ pub trait PermissionStore: Send + Sync {
     fn revoke(&mut self, id: String, user: String, permission: Permission) -> impl Future<Output = CQRLResult<()>> + Send;
 }
 
-pub enum StoreEnum {
-    Surreal(SurrealStore<Client>),
-}
-
 pub mod memory;
-pub mod surreal;
 pub mod mongo;

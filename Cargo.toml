@@ -5,19 +5,22 @@ edition = "2021"
 
 [dependencies]
 parser = { version = "0.1.0", path = "parser" }
-persistence = {version = "0.1.0", path = "persistence" }
-openapigenerator = {version = "0.1.0", path = "openapigenerator"}
 errors = {version = "0.1.0", path = "errors" }
 pest = "2.7.15"
 clap = { version = "4.5.26", features = ["derive"] }
 serde_json = "1.0.137"
-server = { version = "0.1.0", path = "server" }
 tokio = { version = "1.43.0", features = ["full"] }
-surrealdb = { version = "2.1.4", features = ["http", "protocol-http"] }
-events = { version = "0.1.0", path = "events" }
 futures = "0.3.31"
 async-nats = "0.39.0"
 mongodb = "3.2.2"
+cloudevents-sdk = "0.8.0"
+openapiv3 = "2.0.0"
+indexmap = "2.9.0"
+serde = "1.0.219"
+chrono = "0.4.40"
+ulid = "1.2.1"
+axum = "0.8.3"
+hyper = "1.6.0"
 
 [workspace]
-members = [ "errors", "events", "openapigenerator","parser", "persistence", "server"]
+members = ["errors","parser"]

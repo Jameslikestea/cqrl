@@ -1,11 +1,12 @@
+use cloudevents::{Data, Event};
 use errors::CQRLResult;
 use futures::Stream;
-use surrealdb::RecordId;
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 use serde_json::Value;
 
-use crate::{Permission, PermissionStore, Store, PersistenceObject};
+use super::{Permission, PermissionStore, Store, PersistenceObject};
 
 #[derive(Clone)]
 pub struct MemoryStore {
@@ -39,18 +40,25 @@ impl Store for MemoryStore {
         }
     }
 
-    async fn store_object(&mut self, k: String, v: Value, _: String) -> CQRLResult<()> {
+    async fn store_object(&mut self, k: String, v: Event) -> CQRLResult<()> {
         println!("Storing object: {:?}", k);
         let mut store = self.object_store.write().map_err(|_| errors::CQRLError::StoreError)?;
-        store.insert(k, v);
+        store.insert(k, match v.data() {
+            Some(data) => match data {
+                Data::Json(json) => json.clone(),
+                Data::String(string) => serde_json::from_str(&string).unwrap(),
+                Data::Binary(binary) => serde_json::from_slice(&binary).unwrap(),
+            },
+            None => serde_json::Value::from_str("").unwrap(),
+        });
         Ok(())
     }
 
-    async fn store_operation(&mut self, k: String, v: Value, _: String) -> CQRLResult<crate::PersistenceObject> {
+    async fn store_operation(&mut self, k: String, v: Value, _: String) -> CQRLResult<super::PersistenceObject> {
         let mut store = self.operation_store.write().map_err(|_| errors::CQRLError::StoreError)?;
         store.insert(k.clone(), v.clone());
-        Ok(crate::PersistenceObject {
-            id: RecordId::from(("command", k.clone())),
+        Ok(super::PersistenceObject {
+            id: k.clone(),
             data: v.clone(),
             metadata: Value::Null,
         })
@@ -104,7 +112,8 @@ impl PermissionStore for MemoryStore {
 #[cfg(test)]
 mod tests {
     use super::MemoryStore;
-    use crate::Store;
+    use super::Store;
+    use cloudevents::{EventBuilder, EventBuilderV10};
     use serde_json::json;
 
     #[tokio::test]
@@ -115,10 +124,14 @@ mod tests {
             store
                 .store_object(
                     "value".to_string(),
-                    json!({
-                        "test": "value"
-                    }),
-                    "object".to_string()
+                    EventBuilderV10::new()
+                        .id("ABCDEF")
+                        .ty("test")
+                        .data("application/json", json!({
+                            "test": "value"
+                        }))
+                        .source("ABCDEF")
+                        .build().unwrap()
                 )
                 .await
                 .is_ok(),
@@ -169,10 +182,14 @@ mod tests {
             store
                 .store_object(
                     "value".to_string(),
-                    json!({
-                        "test": "value"
-                    }),
-                    "object".to_string()
+                    EventBuilderV10::new()
+                        .id("ABCDEF")
+                        .ty("test")
+                        .data("application/json", json!({
+                            "test": "value"
+                        }))
+                        .source("ABCDEF")
+                        .build().unwrap(),
                 )
                 .await
                 .is_ok(),
