@@ -34,10 +34,6 @@ where
         }
     }
 
-    pub fn with_port(&mut self, port: u16) {
-        self.port = port;
-    }
-
     pub fn with_api(&mut self, api: Arc<API>) {
         self.api = api;
         self.state.api = self.api.clone();

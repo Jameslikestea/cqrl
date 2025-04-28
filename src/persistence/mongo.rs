@@ -164,7 +164,6 @@ impl Store for MongoStore {
     }
 
     async fn store_object(&mut self, _k: String, evt: Event) -> errors::CQRLResult<()> {
-        let id = ulid::Ulid::new().to_string();
         let ty = evt.ty().split(".").last().unwrap().to_string();
 
         let (_id, query) = match evt.subject() {

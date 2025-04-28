@@ -12,15 +12,6 @@ async fn test_server_creation() {
 }
 
 #[tokio::test]
-async fn test_server_with_port() {
-    let store = MemoryStore::new();
-    let mut server = Server::new(store);
-
-    server.with_port(9000);
-    assert_eq!(server.port, 9000);
-}
-
-#[tokio::test]
 async fn test_server_with_api() {
     let store = MemoryStore::new();
     let mut server = Server::new(store);

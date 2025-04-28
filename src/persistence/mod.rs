@@ -50,24 +50,24 @@ pub trait Store: Send + Sync {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 
 pub enum Permission {
-    Read,
-    Write,
+    _Read,
+    _Write,
 }
 
 pub trait PermissionStore: Send + Sync {
-    fn permit(
+    fn _permit(
         &self,
         id: String,
         user: String,
         permission: Permission,
     ) -> impl Future<Output = CQRLResult<bool>> + Send;
-    fn grant(
+    fn _grant(
         &mut self,
         id: String,
         user: String,
         permission: Permission,
     ) -> impl Future<Output = CQRLResult<()>> + Send;
-    fn revoke(
+    fn _revoke(
         &mut self,
         id: String,
         user: String,

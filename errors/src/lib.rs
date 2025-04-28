@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use snafu::Snafu;
 
 #[derive(Debug, Snafu)]

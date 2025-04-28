@@ -181,7 +181,6 @@ fn validate_datatype(name: String, value: &Value, datatype: parser::DataTypes) -
             }
             Ok(())
         }
-        _ => Ok(()),
     }
 }
 
