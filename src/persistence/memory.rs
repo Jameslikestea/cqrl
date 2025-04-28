@@ -42,7 +42,7 @@ impl Store for MemoryStore {
 
     async fn store_object(&mut self, k: String, v: Event) -> CQRLResult<()> {
         println!("Storing object: {:?}", k);
-        let mut store = self.object_store.write().map_err(|_| errors::CQRLError::StoreError)?;
+        let mut store = self.object_store.write().map_err(|_| errors::CQRLError::StoreError { error: "Cannot store object in store".to_string() })?;
         store.insert(k, match v.data() {
             Some(data) => match data {
                 Data::Json(json) => json.clone(),
@@ -55,7 +55,7 @@ impl Store for MemoryStore {
     }
 
     async fn store_operation(&mut self, k: String, v: Value, _: String) -> CQRLResult<super::PersistenceObject> {
-        let mut store = self.operation_store.write().map_err(|_| errors::CQRLError::StoreError)?;
+        let mut store = self.operation_store.write().map_err(|_| errors::CQRLError::StoreError { error: "Cannot store operation in store".to_string() })?;
         store.insert(k.clone(), v.clone());
         Ok(super::PersistenceObject {
             id: k.clone(),
@@ -84,7 +84,7 @@ impl PermissionStore for MemoryStore {
     }
 
     async fn grant(&mut self, id: String, user: String, permission: Permission) -> CQRLResult<()> {
-        let mut store = self.permission_store.write().map_err(|_| errors::CQRLError::StoreError)?;
+        let mut store = self.permission_store.write().map_err(|_| errors::CQRLError::StoreError { error: "Cannot store permission in store".to_string() })?;
         let permissions = store.entry(id).or_insert(HashMap::new());
         let user_permissions = permissions.entry(user).or_insert(Vec::new());
         if !user_permissions.contains(&permission) {
@@ -94,7 +94,7 @@ impl PermissionStore for MemoryStore {
     }
 
     async fn revoke(&mut self, id: String, user: String, permission: Permission) -> CQRLResult<()> {
-        let mut store = self.permission_store.write().map_err(|_| errors::CQRLError::StoreError)?;
+        let mut store = self.permission_store.write().map_err(|_| errors::CQRLError::StoreError { error: "Cannot store permission in store".to_string() })?;
         if let Some(permissions) = store.get_mut(&id) {
             if let Some(user_permissions) = permissions.get_mut(&user) {
                 if let Some(pos) = user_permissions.iter().position(|p| p == &permission) {

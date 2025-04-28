@@ -37,7 +37,7 @@ async fn test_server_with_api() {
         models: vec![],
     };
     
-    server.with_api(api);
+    server.with_api(Arc::new(api));
 }
 
 mod handler_tests {

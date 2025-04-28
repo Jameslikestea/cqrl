@@ -496,6 +496,7 @@ dependencies = [
  "openapiv3",
  "parser",
  "pest",
+ "regex",
  "serde",
  "serde_json",
  "tokio",

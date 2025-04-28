@@ -21,6 +21,7 @@ chrono = "0.4.40"
 ulid = "1.2.1"
 axum = "0.8.3"
 hyper = "1.6.0"
+regex = "1.11.1"
 
 [workspace]
 members = ["errors","parser"]

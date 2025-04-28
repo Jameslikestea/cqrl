@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use pest_derive::Parser;
 use serde::{Deserialize, Serialize};
 
@@ -60,6 +62,20 @@ impl API {
             commands: Vec::new(),
             models: Vec::new(),
             queries: Vec::new(),
+        }
+    }
+}
+
+impl Display for DataTypes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.clone() {
+            DataTypes::Boolean => write!(f, "Boolean"),
+            DataTypes::Datetime => write!(f, "Datetime"),
+            DataTypes::ID => write!(f, "ID"),
+            DataTypes::Model(model) => write!(f, "ID -> {}", model),
+            DataTypes::Number => write!(f, "Number"),
+            DataTypes::Pattern(pattern) => write!(f, "String ({})", pattern),
+            DataTypes::String => write!(f, "String"),
         }
     }
 }

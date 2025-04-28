@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use cloudevents::{AttributesReader, Event, EventBuilder};
 use errors::CQRLResult;
+use parser::API;
 use crate::persistence::{PersistenceObject, Store};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -13,13 +14,16 @@ pub struct NatsEventEmitter<S> where S: Store + Clone {
     store: S,
     #[serde(skip)]
     client: Option<Arc<async_nats::Client>>,
+    #[serde(skip)]
+    api: Option<Arc<API>>,
 }
 
 impl<S> NatsEventEmitter<S> where S: Store + Clone {
-    pub fn new(store: S, client: async_nats::Client) -> Self {
+    pub fn new(store: S, client: async_nats::Client, api: Arc<API>) -> Self {
         Self { 
             store, 
-            client: Some(Arc::new(client)) 
+            client: Some(Arc::new(client)),
+            api: Some(api),
         }
     }
 }
@@ -73,7 +77,9 @@ impl<S> super::EventEmitter<S> for NatsEventEmitter<S> where S: Store + Clone {
         let (mut tx, rx) = mpsc::unbounded();
 
         let client = self.client.clone().unwrap();
+        let api = self.api.clone().unwrap();
         tokio::spawn(async move {
+            let local_api = api.clone();
             let mut subscription = client.subscribe("cqrl.update.*").await.unwrap();
             while let Some(message) = subscription.next().await {
                 let event = match serde_json::from_slice::<cloudevents::Event>(&message.payload) {
@@ -97,13 +103,26 @@ impl<S> super::EventEmitter<S> for NatsEventEmitter<S> where S: Store + Clone {
                             }
                         }
 
-                        event
+                        Arc::new(event)
                     },
                     Err(err) => {
                         println!("Error recieving event on {}: {:?}", message.subject, err);
                         continue;
                     }
                 };
+
+
+                
+                let event = match super::validate_event(event.clone(), local_api.clone()) {
+                    Ok(evt) => {
+                        evt
+                    },
+                    Err(err) => {
+                        println!("Error validating event {}, skipping: {:?}", event.id(), err);
+                        continue;
+                    },
+                };
+
                 match tx.send(event).await {
                     Ok(_) => {
                         println!("Recieved event on {}", message.subject);

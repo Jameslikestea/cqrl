@@ -1,7 +1,10 @@
+use std::sync::Arc;
+
 use cloudevents::{AttributesReader, Data, Event};
 use errors::CQRLResult;
 use futures::channel::mpsc;
-use mongodb::{bson::{self, doc}, Client, IndexModel};
+use mongodb::{bson::{self, doc, Bson}, Client, IndexModel};
+use parser::API;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::task;
@@ -11,6 +14,7 @@ use super::{Store, PersistenceObject};
 #[derive(Clone)]
 pub struct MongoStore {
     client: Client,
+    api: Arc<API>
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,13 +42,43 @@ impl From<PersistenceObject> for MongoObject {
 }
 
 impl MongoStore {
-    pub fn new(client: Client) -> Self {
-        Self { client }
+    pub fn new(client: Client, api: Arc<API>) -> Self {
+        Self { client, api }
     }
 
     pub async fn init(&mut self) -> CQRLResult<()> {
         self.client.database("cqrl").collection::<MongoObject>("operations").create_index(IndexModel::builder().keys(doc!{"metadata.type": 1}).build()).await.unwrap();
         Ok(())
+    }
+}
+
+impl MongoStore {
+    fn event_to_bson(self: &Self, evt: Event) -> Bson {
+        println!("Converting event to bson: {:?}", evt.id());
+        let data = evt.data().unwrap();
+        let value = match data {
+            Data::Json(json) => json.clone(),
+            Data::String(string) => serde_json::from_str(&string).unwrap(),
+            Data::Binary(binary) => serde_json::from_slice(&binary).unwrap(),
+        };
+
+
+        let mut document = bson::Document::new();
+        document.insert("metadata.type", evt.ty());
+        document.insert("metadata.time", evt.time().unwrap().to_rfc3339());
+
+        let api = self.api.clone();
+        let command = api.queries.iter().find(|command| command.name == evt.ty()).unwrap();
+        let model = api.models.iter().find(|model| model.name == command.modelled_by).unwrap();
+
+        for property in model.properties.iter() {
+            let value = value.get(property.name.clone());
+            if value.is_some() {
+                document.insert(format!("data.{}", property.name.clone()), bson::to_bson(&value.unwrap()).unwrap());
+            }
+        }
+
+        Bson::Document(document)
     }
 }
 
@@ -100,15 +134,6 @@ impl Store for MongoStore {
             },
         };
 
-        let data = match evt.data() {
-            Some(data) => match data {
-                Data::Json(json) => json.clone(),
-                Data::String(string) => serde_json::from_str(&string).unwrap(),
-                Data::Binary(binary) => serde_json::from_slice(&binary).unwrap(),
-            },
-            None => serde_json::from_str("").unwrap(),
-        };
-
 
         let update = doc!{
             "$setOnInsert": {
@@ -117,21 +142,17 @@ impl Store for MongoStore {
             "$addToSet": {
                 "metadata.lineage": evt.id(),
             },
-            "$set": {
-                "metadata.type": ty.clone(),
-                "metadata.time": evt.time().unwrap().to_rfc3339(),
-                "data": bson::to_bson(&data).unwrap(),
-            },
+            "$set": self.event_to_bson(evt.clone()),
         };
 
         match self.client.database("cqrl").collection::<MongoObject>("objects").update_one(query, update).upsert(true).await {
             Ok(result) => {
-                println!("Stored object: {:?}. Modified: {:?}", evt, result.modified_count);
+                println!("Applied event: {:?}. Modified: {:?}", evt.id(), result.modified_count);
                 Ok(())
             },
             Err(err) => {
                 println!("Error storing object: {:?}", err);
-                Err(errors::CQRLError::StoreError)
+                Err(errors::CQRLError::StoreError { error: format!("Error storing object: {:?}", err) })
             }
         }
     }

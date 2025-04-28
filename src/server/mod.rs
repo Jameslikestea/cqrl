@@ -32,8 +32,8 @@ impl<S> Server<S> where S: Store + Clone + Send + Sync + 'static {
         self.port = port;
     }
 
-    pub fn with_api(&mut self, api: API) {
-        self.api = Arc::new(api);
+    pub fn with_api(&mut self, api: Arc<API>) {
+        self.api = api;
         self.state.api = self.api.clone();
     }
 

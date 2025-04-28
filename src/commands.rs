@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::{error::Error, fs, time::Duration};
 
 use crate::{commands_generate::GenerateCommand, events::nats::NatsEventEmitter, persistence::mongo::MongoStore};
@@ -48,11 +49,11 @@ impl Commands {
                     }
                 };
 
-                let mut api: API = API::new();
+                let mut api: Arc<API> = Arc::new(API::new());
 
                 match parse_hcl(&content) {
                     Ok(parsed_api) => {
-                        api = parsed_api;
+                        api = Arc::new(parsed_api);
                     }
                     Err(err) => {
                         println!("Cannot parse input file: `{}`: {}", input, err);
@@ -67,31 +68,33 @@ impl Commands {
                         options.connect_timeout = Some(Duration::from_secs(5));
                         options.server_selection_timeout = Some(Duration::from_secs(5));
                         let client = mongodb::Client::with_options(options).unwrap();
-                        let mut store = MongoStore::new(client.clone());
+                        let mut store = MongoStore::new(client.clone(), api.clone());
                         store.init().await.unwrap();
                         let mut server = Server::new(store);
-                        server.with_api(api);
+                        server.with_api(api.clone());
 
                         let send_client = client.clone();
                         let recv_client = client.clone();
-
+                        
                         let send_nats = nats_client.clone();
                         let recv_nats = nats_client.clone();
 
+                        let send_api = api.clone();
+                        let recv_api = api.clone();
+
                         let handle = tokio::spawn(async move {
-                            let mut local_sender = crate::events::nats::NatsEventEmitter::new(MongoStore::new(send_client), send_nats);
+                            let mut local_sender = NatsEventEmitter::new(MongoStore::new(send_client, send_api.clone()), send_nats, send_api);
                             local_sender.run().await.unwrap();
                         });
                         let handle_listen = tokio::spawn(async move {
-                            let mut local_store = MongoStore::new(recv_client);
-                            let mut local_sender = NatsEventEmitter::new(local_store.clone(), recv_nats);
+                            let mut local_store = MongoStore::new(recv_client, recv_api.clone());
+                            let mut local_sender = NatsEventEmitter::new(local_store.clone(), recv_nats, recv_api);
                             let mut stream = local_sender.listen(Value::Null);
                             while let Some(event) = stream.next().await {
-                                println!("Recieved event: {:?}", event);
-                                match local_store.store_object(event.id().to_string(), event.clone()).await {
-                                    Ok(_) => {
-                                        println!("Stored event: {:?}", event.id());
-                                    },
+                                println!("Recieved event: {}", event.id());
+
+                                match local_store.store_object(event.subject().unwrap().to_string(), event.clone()).await {
+                                    Ok(_) => (),
                                     Err(err) => {
                                         println!("Error storing event: {:?}", err);
                                     }

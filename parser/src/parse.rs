@@ -14,7 +14,7 @@ impl super::CQRLParser {
             Ok(pairs) => return super::CQRLParser::process(pairs),
             Err(err) => {
                 return Err(CQRLError::LexError {
-                    error: Box::new(err),
+                    error: err.to_string(),
                 })
             }
         }
