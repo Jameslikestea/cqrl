@@ -4,10 +4,10 @@ use clap::Parser;
 
 mod commands;
 mod commands_generate;
-mod openapigenerator;
 mod events;
-mod server;
+mod openapigenerator;
 mod persistence;
+mod server;
 
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about=None)]

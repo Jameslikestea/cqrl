@@ -1,16 +1,19 @@
 use std::sync::Arc;
 use std::{error::Error, fs, time::Duration};
 
-use crate::{commands_generate::GenerateCommand, events::nats::NatsEventEmitter, persistence::mongo::MongoStore};
+use crate::events::EventEmitter;
+use crate::persistence::Store;
+use crate::server::Server;
+use crate::{
+    commands_generate::GenerateCommand, events::nats::NatsEventEmitter,
+    persistence::mongo::MongoStore,
+};
 use clap::Subcommand;
 use cloudevents::AttributesReader;
-use crate::events::EventEmitter;
+use futures::StreamExt;
 use mongodb::options::ClientOptions;
 use parser::{parse_hcl::parse_hcl, API};
 use serde_json::Value;
-use futures::StreamExt;
-use crate::server::Server;
-use crate::persistence::Store;
 
 #[derive(Debug, Clone, Subcommand)]
 pub(crate) enum Commands {
@@ -25,8 +28,6 @@ pub(crate) enum Commands {
         database_mode: String,
         #[arg(long, short, default_value_t = String::from("mongodb://cqrl:cqrl@localhost:27017/cqrl"))]
         mongodb_address: String,
-        #[arg(long, short, default_value_t = String::from("ws://localhost:8000"))]
-        surreal_address: String,
         #[arg(long, short, default_value_t = String::from("nats://localhost:4222"))]
         nats_address: String,
     },
@@ -36,7 +37,12 @@ impl Commands {
     pub(crate) async fn run(self: Self) -> Result<(), Box<dyn Error>> {
         match self {
             Commands::Generate { command } => command.run().await,
-            Commands::Serve { input, database_mode, mongodb_address, surreal_address, nats_address } => {
+            Commands::Serve {
+                input,
+                database_mode,
+                mongodb_address,
+                nats_address,
+            } => {
                 {
                     println!("Serving CQRL for {}", input);
                 }
@@ -61,10 +67,11 @@ impl Commands {
                 };
 
                 let nats_client = async_nats::connect(nats_address).await.unwrap();
-                
+
                 match database_mode.as_str() {
                     "mongodb" => {
-                        let mut options = ClientOptions::parse(mongodb_address.clone()).await.unwrap();
+                        let mut options =
+                            ClientOptions::parse(mongodb_address.clone()).await.unwrap();
                         options.connect_timeout = Some(Duration::from_secs(5));
                         options.server_selection_timeout = Some(Duration::from_secs(5));
                         let client = mongodb::Client::with_options(options).unwrap();
@@ -75,7 +82,7 @@ impl Commands {
 
                         let send_client = client.clone();
                         let recv_client = client.clone();
-                        
+
                         let send_nats = nats_client.clone();
                         let recv_nats = nats_client.clone();
 
@@ -83,17 +90,28 @@ impl Commands {
                         let recv_api = api.clone();
 
                         let handle = tokio::spawn(async move {
-                            let mut local_sender = NatsEventEmitter::new(MongoStore::new(send_client, send_api.clone()), send_nats, send_api);
+                            let mut local_sender = NatsEventEmitter::new(
+                                MongoStore::new(send_client, send_api.clone()),
+                                send_nats,
+                                send_api,
+                            );
                             local_sender.run().await.unwrap();
                         });
                         let handle_listen = tokio::spawn(async move {
                             let mut local_store = MongoStore::new(recv_client, recv_api.clone());
-                            let mut local_sender = NatsEventEmitter::new(local_store.clone(), recv_nats, recv_api);
+                            let mut local_sender =
+                                NatsEventEmitter::new(local_store.clone(), recv_nats, recv_api);
                             let mut stream = local_sender.listen(Value::Null);
                             while let Some(event) = stream.next().await {
                                 println!("Recieved event: {}", event.id());
 
-                                match local_store.store_object(event.subject().unwrap().to_string(), event.clone()).await {
+                                match local_store
+                                    .store_object(
+                                        event.subject().unwrap().to_string(),
+                                        event.clone(),
+                                    )
+                                    .await
+                                {
                                     Ok(_) => (),
                                     Err(err) => {
                                         println!("Error storing event: {:?}", err);
@@ -104,7 +122,7 @@ impl Commands {
                         server.serve().await;
                         handle.await?;
                         handle_listen.await?;
-                    },
+                    }
                     mode => {
                         println!("Unsupported database type: {}", mode);
                     }

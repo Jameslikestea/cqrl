@@ -1,13 +1,13 @@
 use super::*;
-use parser::{Command, Query};
 use crate::persistence::{memory::MemoryStore, Store};
+use parser::{Command, Query};
 use serde_json::json;
 
 #[tokio::test]
 async fn test_server_creation() {
     let store = MemoryStore::new();
     let server = Server::new(store);
-    
+
     assert_eq!(server.port, 8912); // Default port
 }
 
@@ -15,7 +15,7 @@ async fn test_server_creation() {
 async fn test_server_with_port() {
     let store = MemoryStore::new();
     let mut server = Server::new(store);
-    
+
     server.with_port(9000);
     assert_eq!(server.port, 9000);
 }
@@ -24,7 +24,7 @@ async fn test_server_with_port() {
 async fn test_server_with_api() {
     let store = MemoryStore::new();
     let mut server = Server::new(store);
-    
+
     let api = API {
         commands: vec![Command {
             name: "test".to_string(),
@@ -36,7 +36,7 @@ async fn test_server_with_api() {
         }],
         models: vec![],
     };
-    
+
     server.with_api(Arc::new(api));
 }
 
@@ -51,10 +51,10 @@ mod handler_tests {
     async fn test_root_handler() {
         let store = MemoryStore::new();
         let state = ServerState::new(Arc::new(API::new()), store);
-        
+
         let response = handlers::root(axum::extract::State(state)).await;
         let (status, _) = response.into_response().into_parts();
-        
+
         assert_eq!(status.status, StatusCode::OK);
     }
 
@@ -76,26 +76,36 @@ mod handler_tests {
         let api = parse_hcl(api_hcl).unwrap();
 
         let state = ServerState::new(Arc::new(api), store);
-        
+
         let response = handlers::command(
             axum::extract::State(state),
             axum::extract::Path(("test".to_string(),)),
-            axum::Json(json!({"test": "value"}))
-        ).await;
+            axum::Json(json!({"test": "value"})),
+        )
+        .await;
         let response = response.into_response();
-        
+
         assert_eq!(response.status(), StatusCode::ACCEPTED);
-        assert_eq!(
-            response.headers().get("x-command-id").unwrap(),
-            "test"
-        );
+        assert_eq!(response.headers().get("x-command-id").unwrap(), "test");
     }
 
     #[tokio::test]
     async fn test_query_handler() {
         let mut store = MemoryStore::new();
         // Pre-populate store with test data
-        store.store_object("test".to_string(), EventBuilderV10::new().id("ABCDEF").ty("command").source("ABCDEF").data("application/json", json!({"test": "value"})).build().unwrap()).await.unwrap();
+        store
+            .store_object(
+                "test".to_string(),
+                EventBuilderV10::new()
+                    .id("ABCDEF")
+                    .ty("command")
+                    .source("ABCDEF")
+                    .data("application/json", json!({"test": "value"}))
+                    .build()
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
 
         let api_hcl = r#"
         query "test" {
@@ -109,11 +119,15 @@ mod handler_tests {
         "#;
 
         let api = parse_hcl(api_hcl).unwrap();
-        
+
         let state = ServerState::new(Arc::new(api), store);
-        let response = handlers::query(axum::extract::Path("test".to_string()), axum::extract::State(state)).await;
+        let response = handlers::query(
+            axum::extract::Path("test".to_string()),
+            axum::extract::State(state),
+        )
+        .await;
         let (head, _) = response.into_response().into_parts();
-        
+
         assert_eq!(head.status, StatusCode::OK);
         assert!(head.headers.contains_key("x-pagination-token"));
     }
@@ -124,7 +138,7 @@ fn test_server_state() {
     let store = MemoryStore::new();
     let api = Arc::new(API::new());
     let state = ServerState::new(api.clone(), store);
-    
+
     assert!(state.api.commands.is_empty());
     assert!(state.api.queries.is_empty());
     assert!(state.api.models.is_empty());

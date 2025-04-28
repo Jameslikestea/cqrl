@@ -17,7 +17,7 @@ pub enum CQRLError {
     #[snafu(display("Invalid type used in command"))]
     CommandTypes,
     #[snafu(display("Cannot store object in store: {error}"))]
-    StoreError{error: String},
+    StoreError { error: String },
     #[snafu(display("Invalid event type"))]
     InvalidEventType,
     #[snafu(display("No event data"))]
@@ -27,7 +27,5 @@ pub enum CQRLError {
     #[snafu(display("Incorrect type for field: {name}, expected {ty}"))]
     IncorrectTypeForField { name: String, ty: String },
 }
-
-
 
 pub type CQRLResult<T> = Result<T, CQRLError>;

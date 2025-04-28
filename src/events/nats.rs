@@ -1,16 +1,18 @@
 use std::sync::Arc;
 
+use crate::persistence::{PersistenceObject, Store};
 use cloudevents::{AttributesReader, Event, EventBuilder};
 use errors::CQRLResult;
+use futures::{channel::mpsc, SinkExt, StreamExt};
 use parser::API;
-use crate::persistence::{PersistenceObject, Store};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use futures::{channel::mpsc, StreamExt, SinkExt};
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NatsEventEmitter<S> where S: Store + Clone {
+pub struct NatsEventEmitter<S>
+where
+    S: Store + Clone,
+{
     store: S,
     #[serde(skip)]
     client: Option<Arc<async_nats::Client>>,
@@ -18,17 +20,23 @@ pub struct NatsEventEmitter<S> where S: Store + Clone {
     api: Option<Arc<API>>,
 }
 
-impl<S> NatsEventEmitter<S> where S: Store + Clone {
+impl<S> NatsEventEmitter<S>
+where
+    S: Store + Clone,
+{
     pub fn new(store: S, client: async_nats::Client, api: Arc<API>) -> Self {
-        Self { 
-            store, 
+        Self {
+            store,
             client: Some(Arc::new(client)),
             api: Some(api),
         }
     }
 }
 
-impl<S> super::EventEmitter<S> for NatsEventEmitter<S> where S: Store + Clone {
+impl<S> super::EventEmitter<S> for NatsEventEmitter<S>
+where
+    S: Store + Clone,
+{
     async fn run(self: &mut Self) -> CQRLResult<()> {
         let mut store = self.store.clone();
         let stream = store.watch_operation();
@@ -41,7 +49,13 @@ impl<S> super::EventEmitter<S> for NatsEventEmitter<S> where S: Store + Clone {
     }
 
     fn emit(self: &mut Self, event: PersistenceObject) -> CQRLResult<()> {
-        let source = event.metadata.get("type").unwrap_or(&Value::String(String::from("unknown"))).as_str().unwrap().to_string();
+        let source = event
+            .metadata
+            .get("type")
+            .unwrap_or(&Value::String(String::from("unknown")))
+            .as_str()
+            .unwrap()
+            .to_string();
         let id = event.id.clone();
 
         println!("emitting event: {:?}", id);
@@ -54,7 +68,11 @@ impl<S> super::EventEmitter<S> for NatsEventEmitter<S> where S: Store + Clone {
         let event = cloudevents::EventBuilderV10::new()
             .id(event.id.clone())
             .ty("cqrl.command")
-            .source(format!("urn:cqrl:operation:{}:{}", source.clone(), id.clone()))
+            .source(format!(
+                "urn:cqrl:operation:{}:{}",
+                source.clone(),
+                id.clone()
+            ))
             .data("application/json", event.data)
             .time(ts)
             .build();
@@ -63,10 +81,12 @@ impl<S> super::EventEmitter<S> for NatsEventEmitter<S> where S: Store + Clone {
         if let Some(client) = &self.client {
             let client = client.clone();
             tokio::spawn(async move {
-                client.publish(
-                    format!("cqrl.command.{}", source),
-                    serde_json::to_string(&event.unwrap()).unwrap().into()
-                ).await
+                client
+                    .publish(
+                        format!("cqrl.command.{}", source),
+                        serde_json::to_string(&event.unwrap()).unwrap().into(),
+                    )
+                    .await
             });
         }
 
@@ -96,7 +116,7 @@ impl<S> super::EventEmitter<S> for NatsEventEmitter<S> where S: Store + Clone {
                                     println!("Event received with invalid subject: {}, skipping. Subjects should be a valid ULID", subject);
                                     continue;
                                 }
-                            },
+                            }
                             None => {
                                 println!("Event received with no subject: {}, skipping. Subjects should be a valid ULID", event.id());
                                 continue;
@@ -104,29 +124,25 @@ impl<S> super::EventEmitter<S> for NatsEventEmitter<S> where S: Store + Clone {
                         }
 
                         Arc::new(event)
-                    },
+                    }
                     Err(err) => {
                         println!("Error recieving event on {}: {:?}", message.subject, err);
                         continue;
                     }
                 };
 
-
-                
                 let event = match super::validate_event(event.clone(), local_api.clone()) {
-                    Ok(evt) => {
-                        evt
-                    },
+                    Ok(evt) => evt,
                     Err(err) => {
                         println!("Error validating event {}, skipping: {:?}", event.id(), err);
                         continue;
-                    },
+                    }
                 };
 
                 match tx.send(event).await {
                     Ok(_) => {
                         println!("Recieved event on {}", message.subject);
-                    },
+                    }
                     Err(err) => {
                         println!("Error recieving event on {}: {:?}", message.subject, err);
                     }

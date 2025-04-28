@@ -13,15 +13,15 @@ pub fn parse_hcl(input: &str) -> CQRLResult<crate::API> {
             "command" => {
                 let command = parse_command(block);
                 commands.push(command);
-            },
+            }
             "query" => {
                 let query = parse_query(block);
                 queries.push(query);
-            },
+            }
             "model" => {
                 let model = parse_model(block); // Parse the model
                 models.push(model); // Add model to the list
-            },
+            }
             _ => {}
         }
     }
@@ -86,10 +86,11 @@ fn parse_model(block: &Block) -> crate::Model {
         };
 
         // Extract the type field and handle Identifier
-        let type_str = property_block.get(&hcl::ObjectKey::from(hcl::Identifier::from("type")))
+        let type_str = property_block
+            .get(&hcl::ObjectKey::from(hcl::Identifier::from("type")))
             .and_then(|v| match v {
                 hcl::Expression::String(s) => Some(s.to_string()),
-                _ => None
+                _ => None,
             })
             .unwrap_or_else(|| "string".to_string());
 
@@ -103,27 +104,30 @@ fn parse_model(block: &Block) -> crate::Model {
         };
 
         // Similarly handle boolean values which might be identifiers
-        let required = property_block.get(&hcl::ObjectKey::from(hcl::Identifier::from("required")))
+        let required = property_block
+            .get(&hcl::ObjectKey::from(hcl::Identifier::from("required")))
             .and_then(|v| match v {
                 hcl::Expression::Bool(b) => Some(*b),
                 hcl::Expression::String(id) => Some(id == "true"),
-                _ => None
+                _ => None,
             })
             .unwrap_or(false);
 
-        let primary = property_block.get(&hcl::ObjectKey::from(hcl::Identifier::from("primary")))
+        let primary = property_block
+            .get(&hcl::ObjectKey::from(hcl::Identifier::from("primary")))
             .and_then(|v| match v {
                 hcl::Expression::Bool(b) => Some(*b),
                 hcl::Expression::String(id) => Some(id == "true"),
-                _ => None
+                _ => None,
             })
             .unwrap_or(false);
 
-        let list = property_block.get(&hcl::ObjectKey::from(hcl::Identifier::from("list")))
+        let list = property_block
+            .get(&hcl::ObjectKey::from(hcl::Identifier::from("list")))
             .and_then(|v| match v {
                 hcl::Expression::Bool(b) => Some(*b),
                 hcl::Expression::String(id) => Some(id == "true"),
-                _ => None
+                _ => None,
             })
             .unwrap_or(false);
 
