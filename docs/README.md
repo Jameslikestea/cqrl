@@ -40,4 +40,4 @@ For more detailed documentation, please visit our [documentation site](https://j
 
 ## License
 
-[License information](../LICENSE.md)
+[License information](../LICENSE)
