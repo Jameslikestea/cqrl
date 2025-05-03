@@ -6,12 +6,17 @@ on:
     branches: ["main"]
 env:
   CARGO_TERM_COLOR: always
+
+permissions: {}
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Build
-        run: cargo build --verbose
+        with: 
+          persist-credentials: false
       - name: Run tests
         run: cargo test --verbose --all
