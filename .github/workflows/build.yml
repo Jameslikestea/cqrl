@@ -60,9 +60,6 @@ jobs:
     strategy:
       matrix:
         platform:
-          - os-name: Linux Arm64
-            runs-on: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
           - os-name: Linux x64
             runs-on: ubuntu-latest
             target: x86_64-unknown-linux-gnu
