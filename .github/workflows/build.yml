@@ -1,0 +1,65 @@
+name: Release Rust
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.target }}
+  cancel-in-progress: true
+
+jobs:
+  cliff:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.changelog.outputs.version }}
+      changelog: ${{ steps.changelog.outputs.content }}
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Generate a changelog
+        id: changelog
+        uses: orhun/git-cliff-action@4a4a951bc43fafe41cd2348d181853f52356bee7 # v4
+        with:
+          config: cliff.toml
+          args: --verbose
+        env:
+          OUTPUT: CHANGELOG.md
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Create release
+        uses: actions/github-script@v7
+        env:
+          VERSION: ${{ steps.changelog.outputs.version }}
+          CHANGELOG: ${{ steps.changelog.outputs.content }}
+        with:
+          script: |
+            const { context } = require('@actions/github');
+            const { VERSION, CHANGELOG } = process.env;
+
+            const { owner, repo } = context.repo;
+
+            const release = await github.rest.repos.createRelease({
+              owner,
+              repo,
+              tag_name: VERSION,
+              name: VERSION,
+              body: CHANGELOG,
+            });
+            
+            
