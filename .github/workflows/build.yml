@@ -90,7 +90,7 @@ jobs:
           script: |
             const { BINARY, RELEASE_ID, TARGET } = process.env;
 
-            await octokit.rest.repos.uploadReleaseAsset({
+            await github.rest.repos.uploadReleaseAsset({
               owner,
               repo,
               release_id: RELEASE_ID,
