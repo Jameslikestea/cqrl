@@ -112,7 +112,7 @@ jobs:
 
             const { owner, repo } = context.repo;
 
-            await github.repos.uploadReleaseAsset({
+            await github.rest.repos.uploadReleaseAsset({
               owner,
               repo,
               release_id: UPLOAD_ID,
