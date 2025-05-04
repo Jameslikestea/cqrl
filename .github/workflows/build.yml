@@ -2,10 +2,6 @@ name: Release Rust
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        type: string
-
 
 env:
   CARGO_TERM_COLOR: always
