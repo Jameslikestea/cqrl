@@ -90,6 +90,8 @@ jobs:
           script: |
             const { BINARY, RELEASE_ID, TARGET } = process.env;
 
+            const { owner, repo } = context.repo;
+
             await github.rest.repos.uploadReleaseAsset({
               owner,
               repo,
