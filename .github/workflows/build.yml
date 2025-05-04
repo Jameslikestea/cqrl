@@ -45,7 +45,6 @@ jobs:
           CHANGELOG: ${{ steps.changelog.outputs.content }}
         with:
           script: |
-            const { context } = require('@actions/github');
             const { VERSION, CHANGELOG } = process.env;
 
             const { owner, repo } = context.repo;
