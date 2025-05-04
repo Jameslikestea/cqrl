@@ -14,7 +14,7 @@ jobs:
     outputs:
       version: ${{ steps.changelog.outputs.version }}
       changelog: ${{ steps.changelog.outputs.content }}
-      upload_url: ${{ steps.changelog.outputs.result }}
+      upload_url: ${{ steps.create-release.outputs.result }}
     permissions:
       contents: write
       packages: write
@@ -41,6 +41,7 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
 
       - name: Create release
+        id: create-release
         uses: actions/github-script@v7
         env:
           VERSION: ${{ steps.changelog.outputs.version }}
