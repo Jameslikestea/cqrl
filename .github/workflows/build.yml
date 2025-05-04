@@ -41,7 +41,7 @@ jobs:
       - name: Create release
         uses: actions/github-script@v7
         env:
-          VERSION: ${{ steps.changelog.outputs.version }}
+          VERSION: v${{ steps.changelog.outputs.version }}
           CHANGELOG: ${{ steps.changelog.outputs.content }}
         with:
           script: |

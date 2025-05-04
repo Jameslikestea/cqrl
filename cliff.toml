@@ -4,14 +4,14 @@
 [bump]
 features_always_bump_minor = true
 breaking_always_bump_major = true
-initial_tag = "0.1.0"
+initial_tag = "v0.1.0"
 
 [changelog]
 # template for the changelog body
 # https://keats.github.io/tera/docs/#introduction
 body = """
 {% if version %}\
-    ## {{ version | trim_start_matches(pat="v") }} - {{ timestamp | date(format="%Y-%m-%d") }}\
+    ## {{ version }} - {{ timestamp | date(format="%Y-%m-%d") }}\
 {% else %}\
     ## Unreleased\
 {% endif %}\
