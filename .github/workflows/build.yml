@@ -108,7 +108,7 @@ jobs:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
             const fs = require('fs');
-            const { BINARY, RELEASE_ID, TARGET,    } = process.env;
+            const { BINARY, RELEASE_ID, TARGET, UPLOAD_ID } = process.env;
 
             const { owner, repo } = context.repo;
 
