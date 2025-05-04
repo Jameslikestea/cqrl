@@ -96,7 +96,7 @@ jobs:
               owner,
               repo,
               release_id: RELEASE_ID,
-              name: `cqrl-${TARGET}`,
+              name: `cqrl-${RELEASE_ID}-${TARGET}`,
               data: fs.readFileSync(BINARY),
             });
 
