@@ -89,6 +89,7 @@ jobs:
           TARGET: ${{ matrix.platform.target }}
         with:
           script: |
+            const fs = require('fs');
             const { BINARY, RELEASE_ID, TARGET } = process.env;
 
             const { owner, repo } = context.repo;
