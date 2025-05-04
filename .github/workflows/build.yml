@@ -33,7 +33,7 @@ jobs:
         uses: orhun/git-cliff-action@4a4a951bc43fafe41cd2348d181853f52356bee7 # v4
         with:
           config: cliff.toml
-          args: --verbose
+          args: --bump
         env:
           OUTPUT: CHANGELOG.md
           GITHUB_REPO: ${{ github.repository }}
