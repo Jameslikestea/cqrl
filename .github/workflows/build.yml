@@ -14,6 +14,7 @@ jobs:
     outputs:
       version: ${{ steps.changelog.outputs.version }}
       changelog: ${{ steps.changelog.outputs.content }}
+      upload_url: ${{ steps.changelog.outputs.result }}
     permissions:
       contents: write
       packages: write
@@ -46,6 +47,7 @@ jobs:
           CHANGELOG: ${{ steps.changelog.outputs.content }}
         with:
           github-token: ${{ steps.app-token.outputs.token }}
+          result-encoding: string
           script: |
             const { VERSION, CHANGELOG } = process.env;
 
@@ -58,6 +60,8 @@ jobs:
               name: VERSION,
               body: CHANGELOG,
             });
+
+            return release.data.upload_url;
   build:
     name: Build - ${{ matrix.platform.os-name }}
     runs-on: ${{ matrix.platform.runs-on }}
@@ -92,27 +96,35 @@ jobs:
         run: |
           cargo build --release --target ${{ matrix.platform.target }}
 
-      - name: Upload binary
-        uses: actions/github-script@v7
+      - name: cURL Upload Binary
         env:
+          UPLOAD_URL: ${{ needs.cliff.outputs.upload_url }}?name=cqrl-${{ needs.cliff.outputs.version }}-${{ matrix.platform.target }}
           BINARY: target/${{ matrix.platform.target }}/release/cqrl
-          RELEASE_ID: ${{ needs.cliff.outputs.version }}
-          TARGET: ${{ matrix.platform.target }}
-        with:
-          github-token: ${{ steps.app-token.outputs.token }}
-          script: |
-            const fs = require('fs');
-            const { BINARY, RELEASE_ID, TARGET } = process.env;
+          TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          curl -X POST -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/octet-stream" --data-binary "@${BINARY}" ${UPLOAD_URL}
 
-            const { owner, repo } = context.repo;
+      # - name: Upload binary
+      #   uses: actions/github-script@v7
+      #   env:
+      #     BINARY: target/${{ matrix.platform.target }}/release/cqrl
+      #     RELEASE_ID: ${{ needs.cliff.outputs.version }}
+      #     TARGET: ${{ matrix.platform.target }}
+      #   with:
+      #     github-token: ${{ steps.app-token.outputs.token }}
+      #     script: |
+      #       const fs = require('fs');
+      #       const { BINARY, RELEASE_ID, TARGET } = process.env;
 
-            await github.rest.repos.uploadReleaseAsset({
-              owner,
-              repo,
-              release_id: RELEASE_ID,
-              name: `cqrl-${RELEASE_ID}-${TARGET}`,
-              data: fs.readFileSync(BINARY),
-            });
+      #       const { owner, repo } = context.repo;
+
+      #       await github.rest.repos.uploadReleaseAsset({
+      #         owner,
+      #         repo,
+      #         release_id: RELEASE_ID,
+      #         name: `cqrl-${RELEASE_ID}-${TARGET}`,
+      #         data: fs.readFileSync(BINARY),
+      #       });
 
         
           
