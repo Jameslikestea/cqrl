@@ -52,5 +52,54 @@ jobs:
               name: VERSION,
               body: CHANGELOG,
             });
-            
-            
+  build:
+    name: Build - ${{ matrix.platform.os-name }}
+    runs-on: ${{ matrix.platform.runs-on }}
+    needs:
+      - cliff
+    strategy:
+      matrix:
+        platform:
+          - os-name: Linux Arm64
+            runs-on: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          - os-name: Linux x64
+            runs-on: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+      - name: Setup Rust
+        uses: actions-hub/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.platform.target }}
+      - name: Build binary
+        run: |
+          cargo build --release --target ${{ matrix.platform.target }}
+
+      - name: Upload binary
+        uses: actions/github-script@v7
+        env:
+          BINARY: target/${{ matrix.platform.target }}/release/cqrl
+          RELEASE_ID: ${{ needs.cliff.outputs.version }}
+          TARGET: ${{ matrix.platform.target }}
+        with:
+          script: |
+            const { BINARY, RELEASE_ID, TARGET } = process.env;
+
+            await octokit.rest.repos.uploadReleaseAsset({
+              owner,
+              repo,
+              release_id: RELEASE_ID,
+              name: `cqrl-${TARGET}`,
+              data: fs.readFileSync(BINARY),
+            });
+
+        
+          
