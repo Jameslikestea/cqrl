@@ -12,9 +12,6 @@ env:
 
 permissions: {}
 
-concurrency:
-  cancel-in-progress: true
-
 jobs:
   cliff:
     runs-on: ubuntu-latest
