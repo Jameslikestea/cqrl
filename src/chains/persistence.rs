@@ -58,13 +58,15 @@ impl ChainLink for MongoQueryChain {
                 }
             }
 
-            agg_pipeline.push(match_query);
-            agg_pipeline.push(doc!{
-                "$project": projection,
-            });
-
-            println!("Projection: {:?}", agg_pipeline);
+            
         }
+        
+        agg_pipeline.push(match_query);
+        agg_pipeline.push(doc!{
+            "$project": projection,
+        });
+        
+        println!("Projection: {:?}", agg_pipeline);
 
         let mut result = self._store.database("cqrl").collection::<Value>("objects").aggregate(agg_pipeline).await.unwrap();
 
