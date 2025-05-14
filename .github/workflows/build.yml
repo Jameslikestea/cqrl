@@ -119,6 +119,3 @@ jobs:
               name: `cqrl-${RELEASE_ID}-${TARGET}`,
               data: fs.readFileSync(BINARY),
             });
-
-        
-          

@@ -4,6 +4,7 @@ use std::{error::Error, fs, time::Duration};
 use crate::events::EventEmitter;
 use crate::persistence::Store;
 use crate::server::Server;
+use crate::server_v2;
 use crate::{
     commands_generate::GenerateCommand, events::nats::NatsEventEmitter,
     persistence::mongo::MongoStore,
@@ -119,9 +120,13 @@ impl Commands {
                                 };
                             }
                         });
+                        let second_listen = tokio::spawn(async move {
+                            server_v2::run(api.clone(), Arc::new(client.clone())).await;
+                        });
                         server.serve().await;
                         handle.await?;
                         handle_listen.await?;
+                        second_listen.await?;
                     }
                     mode => {
                         println!("Unsupported database type: {}", mode);

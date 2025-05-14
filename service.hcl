@@ -10,6 +10,10 @@ query "posts" {
     modelled_by = model.post
 }
 
+query "test" {
+    modelled_by = model.post
+}
+
 model "post_input" {
     title = {
         type = "string"
