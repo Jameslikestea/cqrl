@@ -1,11 +1,19 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
-use actix_web::{web::Query, FromRequest};
+use actix_web::{
+    Either, FromRequest,
+    web::{Form, Json, Query},
+};
 use async_trait::async_trait;
 use contexts::ContextManager;
 use serde::Deserialize;
+use serde_json::Value;
+use tracing::instrument;
 
-use super::{keys::{URL_QUERY_ID_KEY, URL_QUERY_PAGE_KEY, URL_QUERY_PAGE_SIZE_KEY}, ChainLink};
+use super::{
+    ChainLink,
+    keys::{URL_QUERY_ID_KEY, URL_QUERY_PAGE_KEY, URL_QUERY_PAGE_SIZE_KEY},
+};
 
 pub(crate) struct URLChain;
 
@@ -18,7 +26,13 @@ struct URLQuery {
 
 #[async_trait(?Send)]
 impl ChainLink for URLChain {
-    async fn process(&self, context: &ContextManager<String, String>, request: &actix_web::HttpRequest) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
+    #[instrument(skip(self, context, request, _body) name = "url_chain")]
+    async fn process(
+        &self,
+        context: &ContextManager<String, String>,
+        request: &actix_web::HttpRequest,
+        _body: &Value,
+    ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
         let mut context = context.clone();
         let mut local_context = HashMap::new();
 
@@ -29,7 +43,7 @@ impl ChainLink for URLChain {
             Some(id) => {
                 local_context.insert(URL_QUERY_ID_KEY.to_string(), id);
             }
-            None => ()
+            None => (),
         }
 
         match inner.page {
@@ -46,7 +60,7 @@ impl ChainLink for URLChain {
                 local_context.insert(URL_QUERY_PAGE_SIZE_KEY.to_string(), page_size.to_string());
             }
             None => {
-                local_context.insert(URL_QUERY_PAGE_SIZE_KEY.to_string(), "10".to_string()  );
+                local_context.insert(URL_QUERY_PAGE_SIZE_KEY.to_string(), "10".to_string());
             }
         }
 

@@ -1,14 +1,23 @@
 use std::{collections::HashMap, sync::Arc};
 
-use actix_web::{web::{Path}, FromRequest, HttpRequest};
-use contexts::ContextManager;
+use actix_web::{
+    Either, FromRequest, HttpMessage, HttpRequest,
+    dev::Decompress,
+    web::{Form, Json, Path, Payload},
+};
 use async_trait::async_trait;
-use parser::API;
+use contexts::ContextManager;
+use parser::{API, DataTypes, Model};
+use serde_json::Value;
+use tracing::{info, instrument};
 
-use super::{keys::{METHOD_KEY, METHOD_TYPE_KEY, METHOD_TYPE_MUTATION, METHOD_TYPE_QUERY}, ChainLink};
+use super::{
+    ChainLink,
+    keys::{METHOD_KEY, METHOD_TYPE_KEY, METHOD_TYPE_MUTATION, METHOD_TYPE_QUERY},
+};
 
 pub(crate) struct QueryMethod {
-    api: Arc<API>
+    api: Arc<API>,
 }
 
 impl QueryMethod {
@@ -19,7 +28,13 @@ impl QueryMethod {
 
 #[async_trait(?Send)]
 impl ChainLink for QueryMethod {
-    async fn process(&self, context: &ContextManager<String, String>, request: &HttpRequest) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
+    #[instrument(skip(self, context, request, _body) name = "query_method_chain")]
+    async fn process(
+        &self,
+        context: &ContextManager<String, String>,
+        request: &HttpRequest,
+        _body: &Value,
+    ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
         let mut context = context.clone();
         let mut local_context = HashMap::new();
 
@@ -40,7 +55,7 @@ impl ChainLink for QueryMethod {
 }
 
 pub(crate) struct CommandMethod {
-    api: Arc<API>
+    api: Arc<API>,
 }
 
 impl CommandMethod {
@@ -49,9 +64,81 @@ impl CommandMethod {
     }
 }
 
+impl CommandMethod {
+    #[instrument(skip(self, model, body) name = "validate_body")]
+    fn validate_body(&self, model: &Model, body: &Value) -> Result<(), Box<dyn std::error::Error>> {
+        let body = body.clone();
+
+        if !body.is_object() {
+            return Err("Invalid body".into());
+        }
+
+        let inner = body.as_object().unwrap();
+
+        for field in model.properties.iter() {
+            match inner.get(field.name.as_str()) {
+                Some(value) => match &field.datatype {
+                    DataTypes::ID => {
+                        if !value.is_string() {
+                            return Err("Invalid field type".into());
+                        }
+                    }
+                    DataTypes::String => {
+                        if !value.is_string() {
+                            return Err("Invalid field type".into());
+                        }
+                    }
+                    DataTypes::Number => {
+                        if !value.is_number() {
+                            return Err("Invalid field type".into());
+                        }
+                    }
+                    DataTypes::Datetime => {
+                        if !value.is_string() {
+                            return Err("Invalid field type".into());
+                        }
+                    }
+                    DataTypes::Boolean => {
+                        if !value.is_boolean() {
+                            return Err("Invalid field type".into());
+                        }
+                    }
+                    DataTypes::Pattern(re) => {
+                        if !value.is_string()
+                            || !regex::Regex::new(&re)
+                                .unwrap()
+                                .is_match(value.as_str().unwrap())
+                        {
+                            return Err("Invalid field type".into());
+                        }
+                    }
+                    DataTypes::Model(_) => {
+                        if !value.is_string() {
+                            return Err("Invalid field type".into());
+                        }
+                    }
+                },
+                None => {
+                    if field.required {
+                        return Err("Missing required field".into());
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
 #[async_trait(?Send)]
 impl ChainLink for CommandMethod {
-    async fn process(&self, context: &ContextManager<String, String>, request: &HttpRequest) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
+    #[instrument(skip(self, context, request, _body) name = "command_method_chain")]
+    async fn process(
+        &self,
+        context: &ContextManager<String, String>,
+        request: &HttpRequest,
+        _body: &Value,
+    ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
         let mut context = context.clone();
         let mut local_context = HashMap::new();
 
@@ -59,10 +146,28 @@ impl ChainLink for CommandMethod {
         let (method,) = path.into_inner();
 
         local_context.insert(METHOD_KEY.to_string(), method.clone());
-        local_context.insert(METHOD_TYPE_KEY.to_string(), METHOD_TYPE_MUTATION.to_string());
+        local_context.insert(
+            METHOD_TYPE_KEY.to_string(),
+            METHOD_TYPE_MUTATION.to_string(),
+        );
 
-        if !self.api.commands.iter().any(|c| c.name == method) {
-            return Err("Method not found".into());
+        match self.api.commands.iter().find(|c| c.name == method) {
+            Some(command) => {
+                let model = match self
+                    .api
+                    .models
+                    .iter()
+                    .find(|m| m.name == command.modelled_by)
+                {
+                    Some(model) => model,
+                    None => return Err("Model not found".into()),
+                };
+
+                self.validate_body(model, _body)?;
+            }
+            None => {
+                return Err("Method not found".into());
+            }
         }
 
         context.push(local_context);

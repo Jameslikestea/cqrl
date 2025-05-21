@@ -3,7 +3,6 @@ use std::{error::Error, fs, time::Duration};
 
 use crate::events::EventEmitter;
 use crate::persistence::Store;
-use crate::server::Server;
 use crate::server_v2;
 use crate::{
     commands_generate::GenerateCommand, events::nats::NatsEventEmitter,
@@ -15,6 +14,7 @@ use futures::StreamExt;
 use mongodb::options::ClientOptions;
 use parser::{parse_hcl::parse_hcl, API};
 use serde_json::Value;
+use tracing::instrument;
 
 #[derive(Debug, Clone, Subcommand)]
 pub(crate) enum Commands {
@@ -35,6 +35,7 @@ pub(crate) enum Commands {
 }
 
 impl Commands {
+    #[instrument(skip(self))]
     pub(crate) async fn run(self: Self) -> Result<(), Box<dyn Error>> {
         match self {
             Commands::Generate { command } => command.run().await,
@@ -78,8 +79,6 @@ impl Commands {
                         let client = mongodb::Client::with_options(options).unwrap();
                         let mut store = MongoStore::new(client.clone(), api.clone());
                         store.init().await.unwrap();
-                        let mut server = Server::new(store);
-                        server.with_api(api.clone());
 
                         let send_client = client.clone();
                         let recv_client = client.clone();
@@ -120,13 +119,7 @@ impl Commands {
                                 };
                             }
                         });
-                        let second_listen = tokio::spawn(async move {
-                            server_v2::run(api.clone(), Arc::new(client.clone())).await;
-                        });
-                        server.serve().await;
-                        handle.await?;
-                        handle_listen.await?;
-                        second_listen.await?;
+                        server_v2::run(api.clone(), Arc::new(client.clone())).await;
                     }
                     mode => {
                         println!("Unsupported database type: {}", mode);
