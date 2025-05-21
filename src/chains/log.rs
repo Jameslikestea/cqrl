@@ -1,9 +1,7 @@
-use std::sync::Arc;
 
 use actix_web::{
-    Either, FromRequest, HttpRequest,
+    FromRequest, HttpRequest,
     dev::ConnectionInfo,
-    web::{Form, Json},
 };
 use async_trait::async_trait;
 use contexts::ContextManager;

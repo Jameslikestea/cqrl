@@ -1,7 +1,7 @@
 use std::{future::Future, pin::Pin, sync::Arc};
 
 use actix_web::{
-    Either, FromRequest, Handler, HttpRequest, HttpResponse,
+    Either, Handler, HttpRequest, HttpResponse,
     web::{Form, Json},
 };
 use async_trait::async_trait;
