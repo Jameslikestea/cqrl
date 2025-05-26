@@ -89,7 +89,7 @@ impl Commands {
                         let send_api = api.clone();
                         let recv_api = api.clone();
 
-                        let handle = tokio::spawn(async move {
+                        let _handle = tokio::spawn(async move {
                             let mut local_sender = NatsEventEmitter::new(
                                 MongoStore::new(send_client, send_api.clone()),
                                 send_nats,
@@ -97,7 +97,7 @@ impl Commands {
                             );
                             local_sender.run().await.unwrap();
                         });
-                        let handle_listen = tokio::spawn(async move {
+                        let _handle_listen = tokio::spawn(async move {
                             let mut local_store = MongoStore::new(recv_client, recv_api.clone());
                             let mut local_sender =
                                 NatsEventEmitter::new(local_store.clone(), recv_nats, recv_api);
