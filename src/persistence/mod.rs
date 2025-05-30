@@ -32,12 +32,14 @@ impl From<cloudevents::Event> for PersistenceObject {
 }
 
 pub trait Store: Send + Sync {
+    #[allow(dead_code)]
     fn store_operation(
         &mut self,
         k: String,
         v: Value,
         operation_type: String,
     ) -> impl Future<Output = CQRLResult<PersistenceObject>> + Send;
+    #[allow(dead_code)]
     fn get_object(
         &self,
         id: Option<String>,
