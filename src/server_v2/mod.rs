@@ -18,7 +18,8 @@ pub (crate) async fn run(api: Arc<API>, store: Arc<mongodb::Client>) {
     let command_chain = chains::ProcessingChain::new(vec![
         Arc::new(chains::log::LogChain),
         Arc::new(chains::url::URLChain),
-        Arc::new(chains::methods::CommandMethod::new(api.clone()))
+        Arc::new(chains::methods::CommandMethod::new(api.clone())),
+        Arc::new(chains::persistence::MongoCommandChain::new(api.clone(), store.clone())),
     ]);
 
     let server = HttpServer::new(move|| {

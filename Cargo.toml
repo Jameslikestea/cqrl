@@ -27,6 +27,8 @@ async-trait = "0.1.88"
 ctrlc = "3.4.7"
 tracing = { version = "0.1.41", features = ["log"] }
 tracing-subscriber = { version = "0.3.19", features = ["json"] }
+crc64 = "2.0.0"
+scylla = "1.1.0"
 
 [workspace]
 members = ["errors","parser"]

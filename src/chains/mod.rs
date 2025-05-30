@@ -6,6 +6,7 @@ use actix_web::{
 };
 use async_trait::async_trait;
 use contexts::ContextManager;
+use keys::{RESPONSE_DATA_KEY, RESPONSE_HEADER_COMMAND_KEY, RESPONSE_HEADER_ETAG_KEY};
 use serde_json::Value;
 use tracing::instrument;
 
@@ -26,18 +27,22 @@ impl ProcessingChain {
     }
 }
 
-impl Handler<(HttpRequest, Either<Json<Value>, Form<Value>>)> for ProcessingChain {
+impl Handler<(HttpRequest, Option<Either<Json<Value>, Form<Value>>>)> for ProcessingChain {
     type Output = HttpResponse;
     type Future = Pin<Box<dyn Future<Output = HttpResponse>>>;
 
     #[instrument(skip(self, request, body) name = "processing_chain")]
     fn call(
         &self,
-        (request, body): (HttpRequest, Either<Json<Value>, Form<Value>>),
+        (request, body): (HttpRequest, Option<Either<Json<Value>, Form<Value>>>),
     ) -> Self::Future {
         let links: Vec<Arc<dyn ChainLink + 'static>> = self.links.clone();
 
-        let body = body.into_inner();
+        let body = match body {
+            Some(Either::Left(body)) => body.into_inner(),
+            Some(Either::Right(body)) => body.into_inner(),
+            None => Value::Null,
+        };
 
         Box::pin(async move {
             let mut context = ContextManager::new();
@@ -51,17 +56,29 @@ impl Handler<(HttpRequest, Either<Json<Value>, Form<Value>>)> for ProcessingChai
                 };
             }
 
-            if context.get("response_data").is_some() {
-                let Some(response_data) = context.get("response_data") else {
+            if context.get(RESPONSE_DATA_KEY).is_some() {
+                let Some(response_data) = context.get(RESPONSE_DATA_KEY) else {
                     return HttpResponse::InternalServerError()
                         .body("No response data found".to_string());
                 };
 
                 let response_data: serde_json::Value = serde_json::from_str(response_data).unwrap();
-                return HttpResponse::Ok().json(response_data);
+                let mut builder = HttpResponse::Ok();
+
+                if let Some(etag) = context.get(RESPONSE_HEADER_ETAG_KEY) {
+                    builder = builder.append_header(("ETag", etag.to_string())).append_header(("Cache-Control", "private, max-age=30")).take();
+                }
+
+                return builder.json(response_data);
             }
 
-            HttpResponse::Accepted().body("")
+            let mut builder = HttpResponse::Accepted();
+
+            if let Some(command_header) = context.get(RESPONSE_HEADER_COMMAND_KEY) {
+                builder = builder.append_header(("X-Command-Id", command_header.to_string())).take();
+            }
+
+            builder.body("")
         })
     }
 }

@@ -5,16 +5,17 @@ use async_trait::async_trait;
 use contexts::ContextManager;
 use futures::StreamExt;
 use mongodb::{
-    Client,
-    bson::{Document, doc},
+    bson::{self, doc, Bson, DateTime, Document}, Client
 };
 use parser::API;
+use scylla::client::session::Session;
 use serde_json::Value;
 use tracing::instrument;
 
+use crate::chains::keys::RESPONSE_HEADER_COMMAND_KEY;
+
 use super::{
-    ChainLink,
-    keys::{METHOD_KEY, RESPONSE_DATA_KEY},
+    keys::{COMMAND_BODY_KEY, METHOD_KEY, RESPONSE_DATA_KEY, RESPONSE_HEADER_ETAG_KEY}, ChainLink
 };
 
 pub(crate) struct MongoQueryChain {
@@ -102,12 +103,78 @@ impl ChainLink for MongoQueryChain {
             objects.push(operation);
         }
 
+        let response = serde_json::to_string(&objects).unwrap();
+        let etag = crc64::crc64(0, response.as_bytes());
+
         hm.insert(
             RESPONSE_DATA_KEY.to_string(),
-            serde_json::to_string(&objects).unwrap(),
+            response,
+        );
+        hm.insert(
+            RESPONSE_HEADER_ETAG_KEY.to_string(),
+            format!("\"{}\"", etag),
         );
         context.push(hm);
 
         Ok(context)
+    }
+}
+
+pub(crate) struct MongoCommandChain {
+    _api: Arc<API>,
+    _store: Arc<Client>,
+}
+
+impl MongoCommandChain {
+    pub(crate) fn new(_api: Arc<API>, _store: Arc<mongodb::Client>) -> Self {
+        Self { _api, _store }
+    }
+}
+
+#[async_trait(?Send)]
+impl ChainLink for MongoCommandChain {
+    #[instrument(skip(self, context, _request, _body) name = "mongo_command_chain")]
+    async fn process(&self, context: &ContextManager<String, String>, _request: &HttpRequest, _body: &Value) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
+        let mut context = context.clone();
+        let mut hm = HashMap::new();
+        let id = ulid::Ulid::new().to_string();
+
+        let Some(command_body) = context.get(COMMAND_BODY_KEY) else {
+            return Err("Command body not found".into());
+        };
+
+        let Some(method) = context.get(METHOD_KEY) else {
+            return Err("Method not found".into());
+        };
+
+        let json = serde_json::from_str::<Value>(command_body)?;
+
+        let mut doc = Document::new();
+
+        let mut metadata = Document::new();
+        metadata.insert("type", Bson::String(method.to_string()));
+        metadata.insert("created_at", Bson::DateTime(DateTime::now()));
+
+        let mut data = Document::new();
+
+        for (key, value) in json.as_object().unwrap().iter() {
+            data.insert(key, bson::to_bson(value).unwrap());
+        }
+
+        doc.insert("_id", Bson::String(id.clone()));
+        doc.insert("metadata", Bson::Document(metadata));
+        doc.insert("data", Bson::Document(data));
+
+        self._store.database("cqrl").collection("operations").insert_one(Bson::Document(doc)).await?;
+
+        hm.insert(
+            RESPONSE_HEADER_COMMAND_KEY.to_string(),
+            id.clone(),
+        );
+        context.push(hm);
+
+        tracing::info!(command_body = json.to_string(), "command body");
+
+        Ok(context.clone())
     }
 }

@@ -7,12 +7,12 @@ use actix_web::{
 use async_trait::async_trait;
 use contexts::ContextManager;
 use parser::{API, DataTypes, Model};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use tracing::instrument;
 
 use super::{
     ChainLink,
-    keys::{METHOD_KEY, METHOD_TYPE_KEY, METHOD_TYPE_MUTATION, METHOD_TYPE_QUERY},
+    keys::{METHOD_KEY, METHOD_TYPE_KEY, METHOD_TYPE_MUTATION, METHOD_TYPE_QUERY, COMMAND_BODY_KEY},
 };
 
 pub(crate) struct QueryMethod {
@@ -64,15 +64,19 @@ impl CommandMethod {
 }
 
 impl CommandMethod {
-    #[instrument(skip(self, model, body) name = "validate_body")]
-    fn validate_body(&self, model: &Model, body: &Value) -> Result<(), Box<dyn std::error::Error>> {
+    #[instrument(skip(self, model) name = "validate_body")]
+    fn validate_body(&self, model: &Model, body: &Value) -> Result<String, Box<dyn std::error::Error>> {
         let body = body.clone();
 
         if !body.is_object() {
             return Err("Invalid body".into());
         }
 
+        tracing::info!("validating body for model: {}", model.name);
+
         let inner = body.as_object().unwrap();
+
+        let mut object: Map<String, Value> = Map::new();
 
         for field in model.properties.iter() {
             match inner.get(field.name.as_str()) {
@@ -81,26 +85,36 @@ impl CommandMethod {
                         if !value.is_string() {
                             return Err("Invalid field type".into());
                         }
+
+                        object.insert(field.name.clone(), value.clone());
                     }
                     DataTypes::String => {
                         if !value.is_string() {
                             return Err("Invalid field type".into());
                         }
+
+                        object.insert(field.name.clone(), value.clone());
                     }
                     DataTypes::Number => {
                         if !value.is_number() {
                             return Err("Invalid field type".into());
                         }
+
+                        object.insert(field.name.clone(), value.clone());
                     }
                     DataTypes::Datetime => {
                         if !value.is_string() {
                             return Err("Invalid field type".into());
                         }
+
+                        object.insert(field.name.clone(), value.clone());
                     }
                     DataTypes::Boolean => {
                         if !value.is_boolean() {
                             return Err("Invalid field type".into());
                         }
+
+                        object.insert(field.name.clone(), value.clone());
                     }
                     DataTypes::Pattern(re) => {
                         if !value.is_string()
@@ -110,11 +124,15 @@ impl CommandMethod {
                         {
                             return Err("Invalid field type".into());
                         }
+
+                        object.insert(field.name.clone(), value.clone());
                     }
                     DataTypes::Model(_) => {
                         if !value.is_string() {
                             return Err("Invalid field type".into());
                         }
+
+                        object.insert(field.name.clone(), value.clone());
                     }
                 },
                 None => {
@@ -125,7 +143,10 @@ impl CommandMethod {
             }
         }
 
-        Ok(())
+        let object = Value::Object(object);
+        let body = serde_json::to_string(&object)?;
+
+        Ok(body)
     }
 }
 
@@ -162,7 +183,14 @@ impl ChainLink for CommandMethod {
                     None => return Err("Model not found".into()),
                 };
 
-                self.validate_body(model, _body)?;
+                match self.validate_body(model, _body) {
+                    Ok(body) => {
+                        local_context.insert(COMMAND_BODY_KEY.to_string(), body);
+                    }
+                    Err(e) => {
+                        return Err(e);
+                    }
+                };
             }
             None => {
                 return Err("Method not found".into());
