@@ -8,7 +8,6 @@ use mongodb::{
     bson::{self, doc, Bson, DateTime, Document}, Client
 };
 use parser::API;
-use scylla::client::session::Session;
 use serde_json::Value;
 use tracing::instrument;
 
