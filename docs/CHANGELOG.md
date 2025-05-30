@@ -1,8 +1,9 @@
-## Unreleased
+## v0.3.1 - 2025-05-30
 ### Bug Fixes
 - Allow dead code
 - Committer for changelog
 - Update origin url
+- Bump changelog version when outputting
 
 ### Chore
 - Output changelog to docs
