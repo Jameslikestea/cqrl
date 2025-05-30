@@ -1,9 +1,17 @@
+---
+layout: page
+title: Change Log
+permalink: /changelog
+---
 ## v0.3.1 - 2025-05-30
 ### Bug Fixes
 - Allow dead code
 - Committer for changelog
 - Update origin url
 - Bump changelog version when outputting
+
+### Documentation
+- Add header to changelog
 
 ### Chore
 - Output changelog to docs
