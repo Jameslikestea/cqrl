@@ -41,3 +41,7 @@ For more detailed documentation, please visit our [documentation site](https://j
 ## License
 
 [License information](../LICENSE)
+
+## Changelog
+
+[Changelog](./CHANGELOG.md)
