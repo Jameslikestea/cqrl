@@ -1,12 +1,11 @@
 use std::{future::Future, pin::Pin, sync::Arc};
 
 use actix_web::{
-    Either, Handler, HttpRequest, HttpResponse,
-    web::{Form, Json},
+    http::Method, web::{Form, Json}, Either, Handler, HttpRequest, HttpResponse
 };
 use async_trait::async_trait;
 use contexts::ContextManager;
-use keys::{RESPONSE_DATA_KEY, RESPONSE_HEADER_COMMAND_KEY, RESPONSE_HEADER_ETAG_KEY};
+use keys::{REQUEST_HEADER_IF_NONE_MATCH_KEY, RESPONSE_DATA_KEY, RESPONSE_HEADER_COMMAND_KEY, RESPONSE_HEADER_ETAG_KEY};
 use serde_json::Value;
 use tracing::instrument;
 
@@ -15,6 +14,7 @@ pub(crate) mod log;
 pub(crate) mod methods;
 pub(crate) mod persistence;
 pub(crate) mod url;
+pub(crate) mod request;
 
 #[derive(Clone)]
 pub(crate) struct ProcessingChain {
@@ -66,7 +66,17 @@ impl Handler<(HttpRequest, Option<Either<Json<Value>, Form<Value>>>)> for Proces
                 let mut builder = HttpResponse::Ok();
 
                 if let Some(etag) = context.get(RESPONSE_HEADER_ETAG_KEY) {
+                    if let Some(request_etag) = context.get(REQUEST_HEADER_IF_NONE_MATCH_KEY) {
+                        if request_etag.to_string() == etag.to_string() {
+                            return HttpResponse::NotModified().body("");
+                        }
+                    }
+
                     builder = builder.append_header(("ETag", etag.to_string())).append_header(("Cache-Control", "private, max-age=30")).take();
+                }
+
+                if request.method() == Method::HEAD {
+                    return builder.body("");
                 }
 
                 return builder.json(response_data);
