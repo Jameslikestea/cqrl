@@ -9,6 +9,13 @@ initial_tag = "v0.1.0"
 [changelog]
 # template for the changelog body
 # https://keats.github.io/tera/docs/#introduction
+header = """
+---
+layout: page
+title: Change Log
+permalink: /changelog
+---
+"""
 body = """
 {% if version %}\
     ## {{ version }} - {{ timestamp | date(format="%Y-%m-%d") }}\

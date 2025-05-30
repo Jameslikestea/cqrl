@@ -1,3 +1,9 @@
+---
+layout: page
+title: Change Log
+permalink: /changelog
+---
+
 ## Unreleased
 ### Bug Fixes
 - Allow dead code
