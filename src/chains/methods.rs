@@ -6,6 +6,7 @@ use actix_web::{
 };
 use async_trait::async_trait;
 use contexts::ContextManager;
+use opentelemetry::{global, metrics::Counter, KeyValue};
 use parser::{API, DataTypes, Model};
 use serde_json::{Map, Value};
 use tracing::instrument;
@@ -17,11 +18,14 @@ use super::{
 
 pub(crate) struct QueryMethod {
     api: Arc<API>,
+    requests: Arc<Counter<u64>>,
 }
 
 impl QueryMethod {
     pub(crate) fn new(api: Arc<API>) -> Self {
-        Self { api }
+        let meter = global::meter("cqrl-server");
+        let requests = meter.u64_counter("cqrl_method_requests").build();
+        Self { api, requests: Arc::new(requests) }
     }
 }
 
@@ -40,6 +44,8 @@ impl ChainLink for QueryMethod {
         let path = Path::<(String,)>::extract(request).await.unwrap();
         let (method,) = path.into_inner();
 
+        self.requests.add(1, &[KeyValue::new("method", method.clone()), KeyValue::new("type", "query")]);
+
         local_context.insert(METHOD_KEY.to_string(), method.clone());
         local_context.insert(METHOD_TYPE_KEY.to_string(), METHOD_TYPE_QUERY.to_string());
 
@@ -55,11 +61,14 @@ impl ChainLink for QueryMethod {
 
 pub(crate) struct CommandMethod {
     api: Arc<API>,
+    requests: Arc<Counter<u64>>,
 }
 
 impl CommandMethod {
     pub(crate) fn new(api: Arc<API>) -> Self {
-        Self { api }
+        let meter = global::meter("cqrl-server");
+        let requests = meter.u64_counter("cqrl_method_requests").build();
+        Self { api, requests: Arc::new(requests) }
     }
 }
 
@@ -164,6 +173,8 @@ impl ChainLink for CommandMethod {
 
         let path = Path::<(String,)>::extract(request).await.unwrap();
         let (method,) = path.into_inner();
+
+        self.requests.add(1, &[KeyValue::new("method", method.clone()), KeyValue::new("type", "command")]);
 
         local_context.insert(METHOD_KEY.to_string(), method.clone());
         local_context.insert(

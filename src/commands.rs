@@ -12,9 +12,11 @@ use clap::Subcommand;
 use cloudevents::AttributesReader;
 use futures::StreamExt;
 use mongodb::options::ClientOptions;
+use opentelemetry::{global, KeyValue};
+use opentelemetry_otlp::WithExportConfig;
 use parser::{parse_hcl::parse_hcl, API};
 use serde_json::Value;
-use tracing::instrument;
+use tracing::{debug, error, info, instrument, warn};
 
 #[derive(Debug, Clone, Subcommand)]
 pub(crate) enum Commands {
@@ -34,6 +36,17 @@ pub(crate) enum Commands {
     },
 }
 
+fn setup_metrics_exporter() {
+    let exporter = opentelemetry_otlp::MetricExporter::builder().with_tonic().with_endpoint("http://localhost:4318/v1/metrics").build().unwrap();
+    let provider = opentelemetry_sdk::metrics::SdkMeterProvider::builder().with_periodic_exporter(exporter).build();
+
+    opentelemetry::global::set_meter_provider(provider);
+
+    let meter = global::meter("cqrl-server");
+    let up = meter.u64_gauge("up").build();
+    up.record(1, &[KeyValue::new("app", "cqrl-server")]);
+}
+
 impl Commands {
     #[instrument(skip(self))]
     pub(crate) async fn run(self: Self) -> Result<(), Box<dyn Error>> {
@@ -46,14 +59,17 @@ impl Commands {
                 nats_address,
             } => {
                 {
-                    println!("Serving CQRL for {}", input);
+                    info!("Serving CQRL for {}", input);
                 }
+                info!("Setting up metrics exporter");
+                setup_metrics_exporter();
+                info!("Metrics exporter setup");
                 let mut content: String = String::new();
 
                 match fs::read_to_string(input.clone()) {
                     Ok(file) => content = file,
                     Err(err) => {
-                        println!("Cannot read input file `{}`: {}", input, err);
+                        error!("Cannot read input file `{}`: {}", input, err);
                     }
                 };
 
@@ -64,7 +80,7 @@ impl Commands {
                         api = Arc::new(parsed_api);
                     }
                     Err(err) => {
-                        println!("Cannot parse input file: `{}`: {}", input, err);
+                        error!("Cannot parse input file: `{}`: {}", input, err);
                     }
                 };
 
@@ -103,7 +119,7 @@ impl Commands {
                                 NatsEventEmitter::new(local_store.clone(), recv_nats, recv_api);
                             let mut stream = local_sender.listen(Value::Null);
                             while let Some(event) = stream.next().await {
-                                println!("Recieved event: {}", event.id());
+                                debug!("Recieved event: {}", event.id());
 
                                 match local_store
                                     .store_object(
@@ -114,7 +130,7 @@ impl Commands {
                                 {
                                     Ok(_) => (),
                                     Err(err) => {
-                                        println!("Error storing event: {:?}", err);
+                                        warn!("Error storing event: {:?}", err);
                                     }
                                 };
                             }
@@ -122,7 +138,7 @@ impl Commands {
                         server_v2::run(api.clone(), Arc::new(client.clone())).await;
                     }
                     mode => {
-                        println!("Unsupported database type: {}", mode);
+                        error!("Unsupported database type: {}", mode);
                     }
                 };
 

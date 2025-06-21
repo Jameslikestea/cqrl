@@ -6,6 +6,7 @@ use actix_web::{
 use async_trait::async_trait;
 use contexts::ContextManager;
 use keys::{REQUEST_HEADER_IF_NONE_MATCH_KEY, RESPONSE_DATA_KEY, RESPONSE_HEADER_COMMAND_KEY, RESPONSE_HEADER_ETAG_KEY};
+use opentelemetry::{global, metrics::{Counter, Histogram}, KeyValue};
 use serde_json::Value;
 use tracing::instrument;
 
@@ -19,11 +20,16 @@ pub(crate) mod request;
 #[derive(Clone)]
 pub(crate) struct ProcessingChain {
     links: Vec<Arc<dyn ChainLink>>,
+    response_size_histogram: Arc<Histogram<u64>>,
+    requests: Arc<Counter<u64>>,
 }
 
 impl ProcessingChain {
     pub(crate) fn new(links: Vec<Arc<dyn ChainLink>>) -> Self {
-        Self { links }
+        let meter = global::meter("cqrl-server");
+        let response_size_histogram = meter.u64_histogram("cqrl_processing_chain_response_size").build();
+        let requests = meter.u64_counter("cqrl_processing_chain_requests").build();
+        Self { links, response_size_histogram: Arc::new(response_size_histogram), requests: Arc::new(requests) }
     }
 }
 
@@ -37,13 +43,14 @@ impl Handler<(HttpRequest, Option<Either<Json<Value>, Form<Value>>>)> for Proces
         (request, body): (HttpRequest, Option<Either<Json<Value>, Form<Value>>>),
     ) -> Self::Future {
         let links: Vec<Arc<dyn ChainLink + 'static>> = self.links.clone();
+        self.requests.add(1, &[KeyValue::new("method", request.method().to_string())]);
 
         let body = match body {
             Some(Either::Left(body)) => body.into_inner(),
             Some(Either::Right(body)) => body.into_inner(),
             None => Value::Null,
         };
-
+        let response_size_histogram = self.response_size_histogram.clone();
         Box::pin(async move {
             let mut context = ContextManager::new();
 
@@ -58,27 +65,32 @@ impl Handler<(HttpRequest, Option<Either<Json<Value>, Form<Value>>>)> for Proces
 
             if context.get(RESPONSE_DATA_KEY).is_some() {
                 let Some(response_data) = context.get(RESPONSE_DATA_KEY) else {
+                    let content = "No response data found".to_string();
+                    response_size_histogram.record(content.len() as u64, &[KeyValue::new("status", "500")]);
                     return HttpResponse::InternalServerError()
-                        .body("No response data found".to_string());
+                        .body(content);
                 };
 
-                let response_data: serde_json::Value = serde_json::from_str(response_data).unwrap();
                 let mut builder = HttpResponse::Ok();
-
+                
                 if let Some(etag) = context.get(RESPONSE_HEADER_ETAG_KEY) {
                     if let Some(request_etag) = context.get(REQUEST_HEADER_IF_NONE_MATCH_KEY) {
                         if request_etag.to_string() == etag.to_string() {
+                            response_size_histogram.record(0, &[KeyValue::new("status", "304")]);
                             return HttpResponse::NotModified().body("");
                         }
                     }
-
+                    
                     builder = builder.append_header(("ETag", etag.to_string())).append_header(("Cache-Control", "private, max-age=30")).take();
                 }
 
                 if request.method() == Method::HEAD {
-                    return builder.body("");
+                    response_size_histogram.record(0, &[KeyValue::new("status", "200")]);
+                    return builder.append_header(("Access-Control-Allow-Origin", "*")).append_header(("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS, ")).body("");
                 }
 
+                response_size_histogram.record(response_data.len() as u64, &[KeyValue::new("status", "200")]);
+                let response_data: serde_json::Value = serde_json::from_str(response_data).unwrap();
                 return builder.json(response_data);
             }
 
@@ -88,6 +100,7 @@ impl Handler<(HttpRequest, Option<Either<Json<Value>, Form<Value>>>)> for Proces
                 builder = builder.append_header(("X-Command-Id", command_header.to_string())).take();
             }
 
+            response_size_histogram.record(0, &[KeyValue::new("status", "202")]);
             builder.body("")
         })
     }

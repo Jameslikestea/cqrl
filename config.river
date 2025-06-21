@@ -1,0 +1,44 @@
+otelcol.receiver.otlp "collector" {
+    grpc {
+        endpoint = "0.0.0.0:4318"
+    }
+    http {
+        endpoint = "0.0.0.0:4317"
+    }
+
+    output {
+        metrics = [otelcol.exporter.prometheus.default.input]
+        logs = [otelcol.exporter.loki.default.input]
+        traces = []
+    }
+}
+
+otelcol.exporter.loki "default" {
+  forward_to = [loki.write.local.receiver]
+}
+
+otelcol.exporter.prometheus "default" {
+    forward_to = [prometheus.relabel.add_job.receiver]
+}
+
+loki.echo "local" {}
+
+loki.write "local" {
+    endpoint {
+        url = "http://loki:3100/loki/api/v1/push"
+    }
+}
+
+prometheus.relabel "add_job" {
+    forward_to = [prometheus.remote_write.prometheus.receiver]
+    rule {
+        target_label = "job"
+        replacement = "cqrl-server/server"
+    }
+}
+
+prometheus.remote_write "prometheus" {
+    endpoint {
+        url = "http://prometheus:9090/api/v1/write"
+    }
+}
