@@ -15,17 +15,18 @@ use mongodb::options::ClientOptions;
 use opentelemetry::{global, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
 use parser::{parse_hcl::parse_hcl, API};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{debug, error, info, instrument, warn};
 
-#[derive(Debug, Clone, Subcommand)]
+#[derive(Debug, Clone, Subcommand, Deserialize, Serialize)]
 pub(crate) enum Commands {
     Generate {
         #[command(subcommand)]
         command: GenerateCommand,
     },
     Serve {
-        #[arg(long, short, default_value_t = String::from("./service.hcl"))]
+        #[arg(required(true), value_name("SERVICE_FILE"), help = "The service file to serve")]
         input: String,
         #[arg(long, short, default_value_t = String::from("mongodb"))]
         database_mode: String,
@@ -34,6 +35,12 @@ pub(crate) enum Commands {
         #[arg(long, short, default_value_t = String::from("nats://localhost:4222"))]
         nats_address: String,
     },
+}
+
+impl Default for Commands {
+    fn default() -> Self {
+        Self::Serve { input: String::from("./service.hcl"), database_mode: String::from("mongodb"), mongodb_address: String::from("mongodb://cqrl:cqrl@localhost:27017/cqrl"), nats_address: String::from("nats://localhost:4222") }
+    }
 }
 
 fn setup_metrics_exporter() {

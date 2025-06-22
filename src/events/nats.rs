@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
 use crate::persistence::{PersistenceObject, Store};
-use cloudevents::{AttributesReader, Event, EventBuilder};
+use cloudevents::{event::ExtensionValue, AttributesReader, Event, EventBuilder};
 use errors::CQRLResult;
 use futures::{channel::mpsc, SinkExt, StreamExt};
 use parser::API;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tracing::{info, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NatsEventEmitter<S>
@@ -65,6 +66,14 @@ where
 
         let ts = chrono::DateTime::from_timestamp_millis(timestamp.try_into().unwrap()).unwrap();
 
+        let authtype = ExtensionValue::String(match event.metadata.get("authcontext") {
+            Some(authcontext) => match authcontext.get("authtype") {
+                Some(authtype) => authtype.as_str().unwrap_or("unauthenticated").to_string(),
+                None => "unauthenticated".to_string(),
+            },
+            None => "unauthenticated".to_string(),
+        });
+
         let event = cloudevents::EventBuilderV10::new()
             .id(event.id.clone())
             .ty("cqrl.command")
@@ -74,6 +83,7 @@ where
                 id.clone()
             ))
             .data("application/json", event.data)
+            .extension("authtype", authtype)
             .time(ts)
             .build();
 
@@ -106,19 +116,19 @@ where
                     Ok(event) => {
                         // Validate the event
                         if ulid::Ulid::from_string(event.id()).is_err() {
-                            println!("Event received with invalid ID: {}, skipping. IDs should be a valid ULID", event.id());
+                            warn!("Event received with invalid ID: {}, skipping. IDs should be a valid ULID", event.id());
                             continue;
                         }
 
                         match event.subject() {
                             Some(subject) => {
                                 if ulid::Ulid::from_string(subject).is_err() {
-                                    println!("Event received with invalid subject: {}, skipping. Subjects should be a valid ULID", subject);
+                                    warn!("Event received with invalid subject: {}, skipping. Subjects should be a valid ULID", subject);
                                     continue;
                                 }
                             }
                             None => {
-                                println!("Event received with no subject: {}, skipping. Subjects should be a valid ULID", event.id());
+                                warn!("Event received with no subject: {}, skipping. Subjects should be a valid ULID", event.id());
                                 continue;
                             }
                         }
@@ -126,7 +136,7 @@ where
                         Arc::new(event)
                     }
                     Err(err) => {
-                        println!("Error recieving event on {}: {:?}", message.subject, err);
+                        warn!("Error recieving event on {}: {:?}", message.subject, err);
                         continue;
                     }
                 };
@@ -134,17 +144,17 @@ where
                 let event = match super::validate_event(event.clone(), local_api.clone()) {
                     Ok(evt) => evt,
                     Err(err) => {
-                        println!("Error validating event {}, skipping: {:?}", event.id(), err);
+                        warn!("Error validating event {}, skipping: {:?}", event.id(), err);
                         continue;
                     }
                 };
 
-                match tx.send(event).await {
+                match tx.send(event.clone()).await {
                     Ok(_) => {
-                        println!("Recieved event on {}", message.subject);
+                        info!("Recieved event {} on {}", event.id(), message.subject);
                     }
                     Err(err) => {
-                        println!("Error recieving event on {}: {:?}", message.subject, err);
+                        warn!("Error recieving event on {}: {:?}", message.subject, err);
                     }
                 }
             }

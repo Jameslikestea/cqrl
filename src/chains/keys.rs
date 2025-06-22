@@ -15,3 +15,7 @@ pub(crate) const URL_QUERY_PAGE_SIZE_KEY: &str = "url_query_page_size";
 pub(crate) const COMMAND_BODY_KEY: &str = "command_body";
 
 pub(crate) const REQUEST_HEADER_IF_NONE_MATCH_KEY: &str = "request_header_if_none_match";
+
+pub (crate) const AUTH_CONTEXT_TYPE_KEY: &str = "authcontext_type";
+#[allow(dead_code)]
+pub (crate) const AUTH_CONTEXT_ID_KEY: &str = "authcontext_id";

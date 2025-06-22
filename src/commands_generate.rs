@@ -3,13 +3,14 @@ use std::{error::Error, fs};
 use clap::Subcommand;
 
 use parser::{parse_hcl::parse_hcl, API};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Subcommand)]
+#[derive(Debug, Clone, Subcommand, Deserialize, Serialize)]
 pub(crate) enum GenerateCommand {
     Openapi {
-        #[arg(long, short, default_value_t = String::from("./service.hcl"))]
+        #[arg(required(true), value_name("SERVICE_FILE"), help = "The service file to generate the OpenAPI spec for")]
         input: String,
-        #[arg(long, short, default_value_t = String::from("./service.openapi.json"))]
+        #[arg(required(true), value_name("OUTPUT_FILE"), help = "The output file to write the OpenAPI spec to")]
         output: String,
     },
 }

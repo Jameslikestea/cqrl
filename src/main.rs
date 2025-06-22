@@ -1,9 +1,11 @@
 use std::error::Error;
 
 use clap::Parser;
+use clap_serde_derive::ClapSerde;
 use opentelemetry_appender_tracing::layer;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{logs::SdkLoggerProvider, Resource};
+use serde::{Deserialize, Serialize};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 
 mod chains;
@@ -14,7 +16,7 @@ mod openapigenerator;
 mod persistence;
 mod server_v2;
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, Clone, clap_serde_derive::ClapSerde, Deserialize, Serialize)]
 #[command(version, about, long_about=None)]
 struct Args {
     #[command(subcommand)]
@@ -25,7 +27,7 @@ struct Args {
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
-    let filter_fmt = EnvFilter::new("info").add_directive("opentelemetry=debug".parse().unwrap());
+    let filter_fmt = EnvFilter::new("info");
     let formatter = tracing_subscriber::fmt::layer().with_level(true).with_target(true).with_thread_ids(false).with_thread_names(false).json().with_filter(filter_fmt);
     
     let exporter = opentelemetry_otlp::LogExporter::builder().with_tonic().with_endpoint("http://localhost:4318/v1/logs").build().unwrap();
@@ -55,6 +57,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         println!("Goodbye!");
         std::process::exit(0);
     });
+
+    let config = toml::to_string(&args.command).unwrap();
+    println!("{}", config);
 
     args.command.run().await
 }

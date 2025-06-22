@@ -1,0 +1,13 @@
+[carve]
+port = 8912
+host = "0.0.0.0"
+
+[carve.nats]
+prefix = "carve"
+
+[carve.mongo]
+uri = "mongodb://localhost:27017/cqrl"
+
+[carve.telemetry]
+enabled = true
+otlp_endpoint = "http://localhost:4318/

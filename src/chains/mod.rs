@@ -10,12 +10,13 @@ use opentelemetry::{global, metrics::{Counter, Histogram}, KeyValue};
 use serde_json::Value;
 use tracing::instrument;
 
+pub(crate) mod auth;
 pub(crate) mod keys;
 pub(crate) mod log;
 pub(crate) mod methods;
 pub(crate) mod persistence;
-pub(crate) mod url;
 pub(crate) mod request;
+pub(crate) mod url;
 
 #[derive(Clone)]
 pub(crate) struct ProcessingChain {
