@@ -3,6 +3,14 @@ layout: page
 title: Change Log
 permalink: /changelog
 ---
+## v0.4.0 - 2025-06-22
+### Features
+- Etag respect in HEAD and GET requests
+- Add remote telemetry
+
+### Chore
+- Starting auth info
+
 ## v0.3.1 - 2025-05-30
 ### Bug Fixes
 - Allow dead code
