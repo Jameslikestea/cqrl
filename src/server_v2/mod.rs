@@ -9,6 +9,7 @@ use crate::chains;
 #[instrument(skip(api, store))]
 pub(crate) async fn run(api: Arc<API>, store: Arc<mongodb::Client>) {
     let query_chain = chains::ProcessingChain::new(vec![
+        Arc::new(chains::auth::AuthChain::new()),
         Arc::new(chains::log::LogChain),
         Arc::new(chains::url::URLChain),
         Arc::new(chains::request::HeaderChain),
@@ -20,6 +21,7 @@ pub(crate) async fn run(api: Arc<API>, store: Arc<mongodb::Client>) {
     ]);
 
     let command_chain = chains::ProcessingChain::new(vec![
+        Arc::new(chains::auth::AuthChain::new()),
         Arc::new(chains::log::LogChain),
         Arc::new(chains::url::URLChain),
         Arc::new(chains::methods::CommandMethod::new(api.clone())),
