@@ -1,8 +1,4 @@
-
-use actix_web::{
-    FromRequest, HttpRequest,
-    dev::ConnectionInfo,
-};
+use actix_web::{dev::ConnectionInfo, FromRequest, HttpRequest};
 use async_trait::async_trait;
 use contexts::ContextManager;
 use serde_json::Value;

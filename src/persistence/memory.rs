@@ -124,7 +124,12 @@ impl PermissionStore for MemoryStore {
         Ok(())
     }
 
-    async fn _revoke(&mut self, id: String, user: String, permission: Permission) -> CQRLResult<()> {
+    async fn _revoke(
+        &mut self,
+        id: String,
+        user: String,
+        permission: Permission,
+    ) -> CQRLResult<()> {
         let mut store =
             self.permission_store
                 .write()

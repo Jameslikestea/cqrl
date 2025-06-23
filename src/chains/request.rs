@@ -11,11 +11,16 @@ use super::{keys::REQUEST_HEADER_IF_NONE_MATCH_KEY, ChainLink};
  * This chain is used to extract the headers that the application cares about from the request
  * and load them into the context for later processing.
  */
-pub (crate) struct HeaderChain;
+pub(crate) struct HeaderChain;
 
 #[async_trait(?Send)]
 impl ChainLink for HeaderChain {
-    async fn process(&self, context: &ContextManager<String, String>, request: &HttpRequest, _: &Value) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
+    async fn process(
+        &self,
+        context: &ContextManager<String, String>,
+        request: &HttpRequest,
+        _: &Value,
+    ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
         let mut context = context.clone();
         let mut hm = HashMap::new();
 

@@ -8,9 +8,17 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Subcommand, Deserialize, Serialize)]
 pub(crate) enum GenerateCommand {
     Openapi {
-        #[arg(required(true), value_name("SERVICE_FILE"), help = "The service file to generate the OpenAPI spec for")]
+        #[arg(
+            required(true),
+            value_name("SERVICE_FILE"),
+            help = "The service file to generate the OpenAPI spec for"
+        )]
         input: String,
-        #[arg(required(true), value_name("OUTPUT_FILE"), help = "The output file to write the OpenAPI spec to")]
+        #[arg(
+            required(true),
+            value_name("OUTPUT_FILE"),
+            help = "The output file to write the OpenAPI spec to"
+        )]
         output: String,
     },
 }

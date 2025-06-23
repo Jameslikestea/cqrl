@@ -5,7 +5,8 @@ use async_trait::async_trait;
 use contexts::ContextManager;
 use futures::StreamExt;
 use mongodb::{
-    bson::{self, doc, Bson, DateTime, Document}, Client
+    bson::{self, doc, Bson, DateTime, Document},
+    Client,
 };
 use parser::API;
 use serde_json::Value;
@@ -14,7 +15,8 @@ use tracing::instrument;
 use crate::chains::keys::{AUTH_CONTEXT_TYPE_KEY, RESPONSE_HEADER_COMMAND_KEY};
 
 use super::{
-    keys::{COMMAND_BODY_KEY, METHOD_KEY, RESPONSE_DATA_KEY, RESPONSE_HEADER_ETAG_KEY}, ChainLink
+    keys::{COMMAND_BODY_KEY, METHOD_KEY, RESPONSE_DATA_KEY, RESPONSE_HEADER_ETAG_KEY},
+    ChainLink,
 };
 
 pub(crate) struct MongoQueryChain {
@@ -105,10 +107,7 @@ impl ChainLink for MongoQueryChain {
         let response = serde_json::to_string(&objects).unwrap();
         let etag = crc64::crc64(0, response.as_bytes());
 
-        hm.insert(
-            RESPONSE_DATA_KEY.to_string(),
-            response,
-        );
+        hm.insert(RESPONSE_DATA_KEY.to_string(), response);
         hm.insert(
             RESPONSE_HEADER_ETAG_KEY.to_string(),
             format!("\"{}\"", etag),
@@ -133,7 +132,12 @@ impl MongoCommandChain {
 #[async_trait(?Send)]
 impl ChainLink for MongoCommandChain {
     #[instrument(skip(self, context, _request, _body) name = "mongo_command_chain")]
-    async fn process(&self, context: &ContextManager<String, String>, _request: &HttpRequest, _body: &Value) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
+    async fn process(
+        &self,
+        context: &ContextManager<String, String>,
+        _request: &HttpRequest,
+        _body: &Value,
+    ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
         let mut context = context.clone();
         let mut hm = HashMap::new();
         let id = ulid::Ulid::new().to_string();
@@ -151,10 +155,13 @@ impl ChainLink for MongoCommandChain {
         let mut doc = Document::new();
 
         let mut auth_context = Document::new();
-        auth_context.insert("authtype", Bson::String(match context.get(AUTH_CONTEXT_TYPE_KEY) {
-            Some(authtype) => authtype.to_string(),
-            None => "unauthenticated".to_string(),
-        }));
+        auth_context.insert(
+            "authtype",
+            Bson::String(match context.get(AUTH_CONTEXT_TYPE_KEY) {
+                Some(authtype) => authtype.to_string(),
+                None => "unauthenticated".to_string(),
+            }),
+        );
 
         let mut metadata = Document::new();
         metadata.insert("type", Bson::String(method.to_string()));
@@ -171,12 +178,13 @@ impl ChainLink for MongoCommandChain {
         doc.insert("metadata", Bson::Document(metadata));
         doc.insert("data", Bson::Document(data));
 
-        self._store.database("cqrl").collection("operations").insert_one(Bson::Document(doc)).await?;
+        self._store
+            .database("cqrl")
+            .collection("operations")
+            .insert_one(Bson::Document(doc))
+            .await?;
 
-        hm.insert(
-            RESPONSE_HEADER_COMMAND_KEY.to_string(),
-            id.clone(),
-        );
+        hm.insert(RESPONSE_HEADER_COMMAND_KEY.to_string(), id.clone());
         context.push(hm);
 
         tracing::info!(command_body = json.to_string(), "command body");

@@ -26,7 +26,11 @@ pub(crate) enum Commands {
         command: GenerateCommand,
     },
     Serve {
-        #[arg(required(true), value_name("SERVICE_FILE"), help = "The service file to serve")]
+        #[arg(
+            required(true),
+            value_name("SERVICE_FILE"),
+            help = "The service file to serve"
+        )]
         input: String,
         #[arg(long, short, default_value_t = String::from("mongodb"))]
         database_mode: String,
@@ -39,13 +43,24 @@ pub(crate) enum Commands {
 
 impl Default for Commands {
     fn default() -> Self {
-        Self::Serve { input: String::from("./service.hcl"), database_mode: String::from("mongodb"), mongodb_address: String::from("mongodb://cqrl:cqrl@localhost:27017/cqrl"), nats_address: String::from("nats://localhost:4222") }
+        Self::Serve {
+            input: String::from("./service.hcl"),
+            database_mode: String::from("mongodb"),
+            mongodb_address: String::from("mongodb://cqrl:cqrl@localhost:27017/cqrl"),
+            nats_address: String::from("nats://localhost:4222"),
+        }
     }
 }
 
 fn setup_metrics_exporter() {
-    let exporter = opentelemetry_otlp::MetricExporter::builder().with_tonic().with_endpoint("http://localhost:4318/v1/metrics").build().unwrap();
-    let provider = opentelemetry_sdk::metrics::SdkMeterProvider::builder().with_periodic_exporter(exporter).build();
+    let exporter = opentelemetry_otlp::MetricExporter::builder()
+        .with_tonic()
+        .with_endpoint("http://localhost:4318/v1/metrics")
+        .build()
+        .unwrap();
+    let provider = opentelemetry_sdk::metrics::SdkMeterProvider::builder()
+        .with_periodic_exporter(exporter)
+        .build();
 
     opentelemetry::global::set_meter_provider(provider);
 

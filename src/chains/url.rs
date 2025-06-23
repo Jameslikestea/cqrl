@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
-use actix_web::{
-    FromRequest,
-    web::Query,
-};
+use actix_web::{web::Query, FromRequest};
 use async_trait::async_trait;
 use contexts::ContextManager;
 use serde::Deserialize;
@@ -11,8 +8,8 @@ use serde_json::Value;
 use tracing::instrument;
 
 use super::{
-    ChainLink,
     keys::{URL_QUERY_ID_KEY, URL_QUERY_PAGE_KEY, URL_QUERY_PAGE_SIZE_KEY},
+    ChainLink,
 };
 
 pub(crate) struct URLChain;

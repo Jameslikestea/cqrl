@@ -1,19 +1,18 @@
 use std::{collections::HashMap, sync::Arc};
 
-use actix_web::{
-    FromRequest, HttpRequest,
-    web::Path,
-};
+use actix_web::{web::Path, FromRequest, HttpRequest};
 use async_trait::async_trait;
 use contexts::ContextManager;
 use opentelemetry::{global, metrics::Counter, KeyValue};
-use parser::{API, DataTypes, Model};
+use parser::{DataTypes, Model, API};
 use serde_json::{Map, Value};
 use tracing::instrument;
 
 use super::{
+    keys::{
+        COMMAND_BODY_KEY, METHOD_KEY, METHOD_TYPE_KEY, METHOD_TYPE_MUTATION, METHOD_TYPE_QUERY,
+    },
     ChainLink,
-    keys::{METHOD_KEY, METHOD_TYPE_KEY, METHOD_TYPE_MUTATION, METHOD_TYPE_QUERY, COMMAND_BODY_KEY},
 };
 
 pub(crate) struct QueryMethod {
@@ -25,7 +24,10 @@ impl QueryMethod {
     pub(crate) fn new(api: Arc<API>) -> Self {
         let meter = global::meter("cqrl-server");
         let requests = meter.u64_counter("cqrl_method_requests").build();
-        Self { api, requests: Arc::new(requests) }
+        Self {
+            api,
+            requests: Arc::new(requests),
+        }
     }
 }
 
@@ -44,7 +46,13 @@ impl ChainLink for QueryMethod {
         let path = Path::<(String,)>::extract(request).await.unwrap();
         let (method,) = path.into_inner();
 
-        self.requests.add(1, &[KeyValue::new("method", method.clone()), KeyValue::new("type", "query")]);
+        self.requests.add(
+            1,
+            &[
+                KeyValue::new("method", method.clone()),
+                KeyValue::new("type", "query"),
+            ],
+        );
 
         local_context.insert(METHOD_KEY.to_string(), method.clone());
         local_context.insert(METHOD_TYPE_KEY.to_string(), METHOD_TYPE_QUERY.to_string());
@@ -68,13 +76,20 @@ impl CommandMethod {
     pub(crate) fn new(api: Arc<API>) -> Self {
         let meter = global::meter("cqrl-server");
         let requests = meter.u64_counter("cqrl_method_requests").build();
-        Self { api, requests: Arc::new(requests) }
+        Self {
+            api,
+            requests: Arc::new(requests),
+        }
     }
 }
 
 impl CommandMethod {
     #[instrument(skip(self, model) name = "validate_body")]
-    fn validate_body(&self, model: &Model, body: &Value) -> Result<String, Box<dyn std::error::Error>> {
+    fn validate_body(
+        &self,
+        model: &Model,
+        body: &Value,
+    ) -> Result<String, Box<dyn std::error::Error>> {
         let body = body.clone();
 
         if !body.is_object() {
@@ -174,7 +189,13 @@ impl ChainLink for CommandMethod {
         let path = Path::<(String,)>::extract(request).await.unwrap();
         let (method,) = path.into_inner();
 
-        self.requests.add(1, &[KeyValue::new("method", method.clone()), KeyValue::new("type", "command")]);
+        self.requests.add(
+            1,
+            &[
+                KeyValue::new("method", method.clone()),
+                KeyValue::new("type", "command"),
+            ],
+        );
 
         local_context.insert(METHOD_KEY.to_string(), method.clone());
         local_context.insert(
