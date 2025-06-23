@@ -38,6 +38,27 @@ This decoupled architecture allows teams to build more maintainable, scalable sy
 
 For more detailed documentation, please visit our [documentation site](https://jameslikestea.github.io/cqrl/).
 
+## Roadmap
+
+- Features
+    - Core
+        - [x] Serve requests based on a CQRL service file
+        - [ ] Authenticate requests using JWKS and [Authcontext](https://github.com/cloudevents/spec/blob/main/cloudevents/extensions/authcontext.md)
+        - [x] Validate requests against a schema
+        - [x] OTLP Logging and metrics
+        - [ ] Authorize requests based on the Authcontext
+        - [ ] Enable rate limiting based on Authcontext or user IP
+        - [ ] Enable websocket watch for processing status (Received, ACK'd, Completed, Failed)
+    - Generators
+        - [x] Generate OpenAPI spec from CQRL service file
+        - [ ] Generate RxJS client from CQRL service file
+- Documentation
+    - Usage
+        - [ ] Add documentation for configuring CQRL
+        - [ ] Add documentation for downstream services
+        - [ ] Add documentation for how to update a model
+        - [ ] Add documentation for how to authorize user access to models
+
 ## License
 
 [License information](../LICENSE)
