@@ -5,7 +5,10 @@ use async_trait::async_trait;
 use contexts::ContextManager;
 use serde_json::Value;
 
-use super::{keys::REQUEST_HEADER_IF_NONE_MATCH_KEY, ChainLink};
+use super::{
+    keys::{REQUEST_HEADER_IF_NONE_MATCH_KEY, REQUEST_HEADER_IP_KEY},
+    ChainLink,
+};
 
 /**
  * This chain is used to extract the headers that the application cares about from the request
@@ -31,6 +34,10 @@ impl ChainLink for HeaderChain {
                 etags.to_str().unwrap().to_string(),
             );
         }
+
+        let connection = request.connection_info();
+        let ip = connection.realip_remote_addr().unwrap_or("unknown");
+        hm.insert(REQUEST_HEADER_IP_KEY.to_string(), ip.to_string());
 
         context.push(hm);
 

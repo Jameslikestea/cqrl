@@ -24,6 +24,7 @@ pub(crate) mod keys;
 pub(crate) mod log;
 pub(crate) mod methods;
 pub(crate) mod persistence;
+pub(crate) mod ratelimit;
 pub(crate) mod request;
 pub(crate) mod url;
 

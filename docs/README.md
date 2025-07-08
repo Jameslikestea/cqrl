@@ -47,7 +47,9 @@ For more detailed documentation, please visit our [documentation site](https://j
         - [x] Validate requests against a schema
         - [x] OTLP Logging and metrics
         - [ ] Authorize requests based on the Authcontext
-        - [ ] Enable rate limiting based on Authcontext or user IP
+        - [ ] Enable rate limiting
+            - [x] IP Address
+            - [ ] Auth Context
         - [ ] Enable websocket watch for processing status (Received, ACK'd, Completed, Failed)
     - Generators
         - [x] Generate OpenAPI spec from CQRL service file
