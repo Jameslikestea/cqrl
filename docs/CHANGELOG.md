@@ -3,6 +3,19 @@ layout: page
 title: Change Log
 permalink: /changelog
 ---
+## v0.5.0 - 2025-07-08
+### Documentation
+- Add roadmap
+
+### Features
+- Add rate limiting for ip addresses
+
+### Refactor
+- Add authentication into chains
+
+### Chore
+- Format all code
+
 ## v0.4.0 - 2025-06-22
 ### Features
 - Etag respect in HEAD and GET requests
