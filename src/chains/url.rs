@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
-use actix_web::{web::Query, FromRequest};
+use actix_web::{web::Query, FromRequest, HttpRequest};
 use async_trait::async_trait;
 use contexts::ContextManager;
 use serde::Deserialize;
@@ -27,13 +27,13 @@ impl ChainLink for URLChain {
     async fn process(
         &self,
         context: &ContextManager<String, String>,
-        request: &actix_web::HttpRequest,
+        request: Arc<HttpRequest>,
         _body: &Value,
     ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
         let mut context = context.clone();
         let mut local_context = HashMap::new();
 
-        let query = Query::<URLQuery>::extract(request).await.unwrap();
+        let query = Query::<URLQuery>::extract(request.as_ref()).await.unwrap();
         let inner = query.into_inner();
 
         match inner.id {

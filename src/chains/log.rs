@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use actix_web::{dev::ConnectionInfo, FromRequest, HttpRequest};
 use async_trait::async_trait;
 use contexts::ContextManager;
@@ -14,10 +16,10 @@ impl ChainLink for LogChain {
     async fn process(
         &self,
         context: &ContextManager<String, String>,
-        request: &HttpRequest,
+        request: Arc<HttpRequest>,
         _body: &Value,
     ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
-        let connection_info = ConnectionInfo::extract(request).await.unwrap();
+        let connection_info = ConnectionInfo::extract(request.as_ref()).await.unwrap();
 
         let method = request.method().as_str();
         let path = request.path();

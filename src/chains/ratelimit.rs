@@ -98,7 +98,7 @@ impl ChainLink for RateLimitChain {
     async fn process(
         &self,
         context: &ContextManager<String, String>,
-        _request: &HttpRequest,
+        _request: Arc<HttpRequest>,
         _body: &Value,
     ) -> Result<ContextManager<String, String>, Box<dyn Error>> {
         if let Some(ip) = context.get(REQUEST_HEADER_IP_KEY) {

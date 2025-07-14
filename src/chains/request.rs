@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use actix_web::HttpRequest;
 use async_trait::async_trait;
@@ -21,7 +21,7 @@ impl ChainLink for HeaderChain {
     async fn process(
         &self,
         context: &ContextManager<String, String>,
-        request: &HttpRequest,
+        request: Arc<HttpRequest>,
         _: &Value,
     ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
         let mut context = context.clone();

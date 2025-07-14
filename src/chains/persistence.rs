@@ -36,7 +36,7 @@ impl ChainLink for MongoQueryChain {
     async fn process(
         &self,
         context: &ContextManager<String, String>,
-        _request: &HttpRequest,
+        _request: Arc<HttpRequest>,
         _body: &Value,
     ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
         let mut context = context.clone();
@@ -135,7 +135,7 @@ impl ChainLink for MongoCommandChain {
     async fn process(
         &self,
         context: &ContextManager<String, String>,
-        _request: &HttpRequest,
+        _request: Arc<HttpRequest>,
         _body: &Value,
     ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
         let mut context = context.clone();

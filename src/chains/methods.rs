@@ -37,13 +37,13 @@ impl ChainLink for QueryMethod {
     async fn process(
         &self,
         context: &ContextManager<String, String>,
-        request: &HttpRequest,
+        request: Arc<HttpRequest>,
         _body: &Value,
     ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
         let mut context = context.clone();
         let mut local_context = HashMap::new();
 
-        let path = Path::<(String,)>::extract(request).await.unwrap();
+        let path = Path::<(String,)>::extract(request.as_ref()).await.unwrap();
         let (method,) = path.into_inner();
 
         self.requests.add(
@@ -180,13 +180,13 @@ impl ChainLink for CommandMethod {
     async fn process(
         &self,
         context: &ContextManager<String, String>,
-        request: &HttpRequest,
+        request: Arc<HttpRequest>,
         _body: &Value,
     ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
         let mut context = context.clone();
         let mut local_context = HashMap::new();
 
-        let path = Path::<(String,)>::extract(request).await.unwrap();
+        let path = Path::<(String,)>::extract(request.as_ref()).await.unwrap();
         let (method,) = path.into_inner();
 
         self.requests.add(

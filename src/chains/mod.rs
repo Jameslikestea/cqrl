@@ -52,7 +52,7 @@ impl ProcessingChain {
 
 impl Handler<(HttpRequest, Option<Either<Json<Value>, Form<Value>>>)> for ProcessingChain {
     type Output = HttpResponse;
-    type Future = Pin<Box<dyn Future<Output = HttpResponse>>>;
+    type Future = Pin<Box<dyn Future<Output = Self::Output>>>;
 
     #[instrument(skip(self, request, body) name = "processing_chain")]
     fn call(
@@ -72,8 +72,10 @@ impl Handler<(HttpRequest, Option<Either<Json<Value>, Form<Value>>>)> for Proces
         Box::pin(async move {
             let mut context = ContextManager::new();
 
+            let request_arc = Arc::new(request.clone());
+
             for link in links.iter() {
-                context = match link.process(&context, &request, &body).await {
+                context = match link.process(&context, request_arc.clone(), &body).await {
                     Ok(context) => context,
                     Err(e) => {
                         return HttpResponse::InternalServerError().body(e.to_string());
@@ -139,7 +141,7 @@ pub(crate) trait ChainLink: Send + Sync {
     async fn process(
         &self,
         context: &ContextManager<String, String>,
-        _request: &HttpRequest,
+        _request: Arc<HttpRequest>,
         _body: &Value,
     ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
         Ok(context.clone())

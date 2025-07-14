@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use actix_web::HttpRequest;
 use async_trait::async_trait;
 use contexts::ContextManager;
@@ -20,7 +22,7 @@ impl ChainLink for AuthChain {
     async fn process(
         &self,
         context: &ContextManager<String, String>,
-        _request: &HttpRequest,
+        _request: Arc<HttpRequest>,
         _body: &Value,
     ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
         let mut ctx = context.clone();
