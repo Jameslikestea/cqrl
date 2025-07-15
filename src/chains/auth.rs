@@ -142,7 +142,7 @@ impl ChainLink for AuthChain {
 
                 ctx.insert(AUTH_CONTEXT_TYPE_KEY.to_string(), "app_user".to_string());
             }
-            ("api_key", key) => {
+            ("api_key", _key) => {
                 ctx.insert(AUTH_CONTEXT_TYPE_KEY.to_string(), "api_key".to_string());
             }
             (_, _) => {
