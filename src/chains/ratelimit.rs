@@ -18,7 +18,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{debug, info, warn};
 
-use crate::chains::{keys::REQUEST_HEADER_IP_KEY, ChainLink};
+use crate::chains::{
+    keys::{AUTH_CONTEXT_ID_KEY, REQUEST_HEADER_IP_KEY},
+    ChainLink,
+};
 
 pub(crate) struct RateLimitChain {
     store: Arc<Client>,
@@ -56,7 +59,7 @@ impl RateLimitChain {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct RateLimit {
-    ip: String,
+    key: String,
     current: u32,
 }
 
@@ -101,38 +104,47 @@ impl ChainLink for RateLimitChain {
         _request: Arc<HttpRequest>,
         _body: &Value,
     ) -> Result<ContextManager<String, String>, Box<dyn Error>> {
-        if let Some(ip) = context.get(REQUEST_HEADER_IP_KEY) {
-            let ip = ip.to_string();
+        let (key, threshold) = match context.get(AUTH_CONTEXT_ID_KEY) {
+            Some(auth_id) => (Some(auth_id.to_string()), 1000),
+            None => match context.get(REQUEST_HEADER_IP_KEY) {
+                Some(ip) => (Some(ip.to_string()), 100),
+                None => (None, 0),
+            },
+        };
+
+        if let Some(rate_limit_key) = key {
             let collection = self
                 .store
                 .database("cqrl")
                 .collection::<RateLimit>("ratelimits");
-            let result: Option<RateLimit> = collection.find_one(doc! { "ip": ip.clone() }).await?;
+            let result: Option<RateLimit> = collection
+                .find_one(doc! { "key": rate_limit_key.clone() })
+                .await?;
             if let Some(doc) = result {
                 let current = doc.current;
-                if current >= 100 {
-                    warn!("rate limit exceeded for ip: {}", ip.clone());
+                if current >= threshold {
+                    warn!("rate limit exceeded for key: {}", rate_limit_key.clone());
                     return Err(Box::new(RateLimitError::RateLimitExceeded));
                 }
             }
 
-            info!("rate limit for ip: {}", ip.clone());
+            info!("rate limit for key: {}", rate_limit_key.clone());
 
             let expires_after = Utc::now();
             let expires_after_value = bson::DateTime::from_millis(expires_after.timestamp_millis());
 
             match collection
                 .update_one(
-                    doc! { "ip": ip.clone() },
-                    doc! { "$setOnInsert": { "ip": ip.clone(), "expiresAfter": expires_after_value }, "$inc": { "current": 1 } },
+                    doc! { "key": rate_limit_key.clone() },
+                    doc! { "$setOnInsert": { "key": rate_limit_key.clone(), "expiresAfter": expires_after_value }, "$inc": { "current": 1 } },
                 )
                 .upsert(true)
                 .await
             {
-                Ok(_) => debug!("rate limit updated for ip: {}", ip.clone()),
+                Ok(_) => debug!("rate limit updated for key: {}", rate_limit_key.clone()),
                 Err(e) => warn!(
-                    "failed to update rate limit for ip: {} -> {}",
-                    ip.clone(),
+                    "failed to update rate limit for key: {} -> {}",
+                    rate_limit_key.clone(),
                     e
                 ),
             };

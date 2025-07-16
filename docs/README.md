@@ -43,13 +43,13 @@ For more detailed documentation, please visit our [documentation site](https://j
 - Features
     - Core
         - [x] Serve requests based on a CQRL service file
-        - [ ] Authenticate requests using JWKS and [Authcontext](https://github.com/cloudevents/spec/blob/main/cloudevents/extensions/authcontext.md)
+        - [x] Authenticate requests using JWKS and [Authcontext](https://github.com/cloudevents/spec/blob/main/cloudevents/extensions/authcontext.md)
         - [x] Validate requests against a schema
         - [x] OTLP Logging and metrics
         - [ ] Authorize requests based on the Authcontext
-        - [ ] Enable rate limiting
+        - [x] Enable rate limiting
             - [x] IP Address
-            - [ ] Auth Context
+            - [x] Auth Context
         - [ ] Enable websocket watch for processing status (Received, ACK'd, Completed, Failed)
     - Generators
         - [x] Generate OpenAPI spec from CQRL service file
