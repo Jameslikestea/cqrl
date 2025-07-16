@@ -63,4 +63,9 @@ services:
       - "--config.file=/etc/prometheus/prometheus.yml"
     networks:
       - cqrl-network
-
+  jwks:
+    image: ghcr.io/murar8/local-jwks-server:1.5.0
+    ports:
+      - "8080:8080"
+    networks:
+      - cqrl-network

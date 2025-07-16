@@ -74,7 +74,7 @@ where
             None => "unauthenticated".to_string(),
         });
 
-        let event = cloudevents::EventBuilderV10::new()
+        let mut eventbuilder = cloudevents::EventBuilderV10::new()
             .id(event.id.clone())
             .ty("cqrl.command")
             .source(format!(
@@ -84,8 +84,24 @@ where
             ))
             .data("application/json", event.data)
             .extension("authtype", authtype)
-            .time(ts)
-            .build();
+            .time(ts);
+
+        let authid = match event.metadata.get("authcontext") {
+            Some(authcontext) => match authcontext.get("authid") {
+                Some(authid) => Some(authid.as_str().unwrap_or("").to_string()),
+                None => None,
+            },
+            None => None,
+        };
+
+        match authid {
+            Some(authid) => {
+                eventbuilder = eventbuilder.extension("authid", ExtensionValue::String(authid));
+            }
+            None => (),
+        }
+
+        let event = eventbuilder.build();
 
         // Clone the Arc<Client> before moving it into the spawned task
         if let Some(client) = &self.client {
