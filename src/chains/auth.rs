@@ -10,12 +10,18 @@ use jsonwebtoken::{decode, decode_header, jwk::JwkSet, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::{task, time};
-use tracing::warn;
 
 use crate::chains::{
     keys::{AUTH_CONTEXT_ID_KEY, AUTH_CONTEXT_TYPE_KEY},
     ChainLink,
 };
+
+enum AuthType {
+    AppUser(String),
+    #[allow(dead_code)]
+    ApiKey(String),
+    Unauthenticated,
+}
 
 #[allow(dead_code)]
 pub(crate) struct AuthChain {
@@ -69,6 +75,88 @@ impl AuthChain {
             jwks: jwks_arc_clone,
         }
     }
+
+    fn get_auth_type(&self, auth_header: &str) -> AuthType {
+        let auth = auth_header.split(" ").collect::<Vec<&str>>();
+
+        if auth.len() != 2 {
+            tracing::info!("invalid auth header: {:?}", auth_header);
+            return AuthType::Unauthenticated;
+        }
+
+        if auth[0].to_string() == "Bearer" {
+            tracing::info!("app user auth header: {:?}", auth[1]);
+            return AuthType::AppUser(auth[1].to_string());
+        }
+
+        if auth[0].to_string() == "Api-Key" {
+            tracing::info!("api key auth header: {:?}", auth[1]);
+            return AuthType::ApiKey(auth[1].to_string());
+        }
+
+        AuthType::Unauthenticated
+    }
+
+    async fn validate_auth(
+        &self,
+        auth: AuthType,
+        ctx: ContextManager<String, String>,
+    ) -> ContextManager<String, String> {
+        match auth {
+            AuthType::AppUser(user) => {
+                let mut ctx = ctx.clone();
+                match self.decode_token(&user).await {
+                    Ok(claims) => {
+                        tracing::info!("app user claims: {:?}", claims);
+                        ctx.insert(AUTH_CONTEXT_ID_KEY.to_string(), claims.sub.to_string());
+                        ctx.insert(AUTH_CONTEXT_TYPE_KEY.to_string(), "app_user".to_string());
+                    }
+                    Err(e) => {
+                        tracing::warn!("cannot decode token: {:?}", e);
+                        ctx.insert(
+                            AUTH_CONTEXT_TYPE_KEY.to_string(),
+                            "unauthenticated".to_string(),
+                        );
+                    }
+                };
+
+                ctx
+            }
+            _ => {
+                let mut ctx = ctx.clone();
+                ctx.insert(
+                    AUTH_CONTEXT_TYPE_KEY.to_string(),
+                    "unauthenticated".to_string(),
+                );
+                ctx
+            }
+        }
+    }
+
+    async fn decode_token(&self, token: &str) -> Result<Claims, Box<dyn std::error::Error>> {
+        let hdr = match decode_header(token) {
+            Ok(hdr) => hdr,
+            Err(_) => return Err("invalid token: no header".into()),
+        };
+
+        let kid = hdr.kid.unwrap();
+        let jwks = self.jwks.lock().unwrap();
+
+        let jwk = match jwks.find(&kid) {
+            None => return Err("invalid token: key not found".into()),
+            Some(jwk) => jwk,
+        };
+
+        let mut validation = Validation::new(hdr.alg);
+        validation.set_audience(&vec!["cqrl".to_string()]);
+
+        let claims = decode::<Claims>(token, &DecodingKey::from_jwk(jwk).unwrap(), &validation);
+
+        match claims {
+            Ok(claims) => Ok(claims.claims),
+            Err(e) => Err(e.into()),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -84,74 +172,20 @@ impl ChainLink for AuthChain {
         _request: Arc<HttpRequest>,
         _body: &Value,
     ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
-        let auth_type = match _request.headers().get("Authorization") {
-            Some(auth_header) => {
-                let auth = auth_header
-                    .to_str()
-                    .unwrap()
-                    .split(" ")
-                    .collect::<Vec<&str>>();
-                if auth_header.to_str().unwrap().starts_with("Bearer") {
-                    ("app_user", auth[1].to_string())
-                } else if auth_header.to_str().unwrap().starts_with("Api-Key") {
-                    ("api_key", auth[1].to_string())
-                } else {
-                    ("unauthenticated", "".to_string())
-                }
-            }
-            None => ("unauthenticated", "".to_string()),
+        tracing::info!("auth chain");
+
+        let auth_hdr = match _request.headers().get("Authorization") {
+            Some(auth_header) => auth_header.to_str().unwrap(),
+            None => "",
         };
-        let mut ctx = context.clone();
 
-        match auth_type {
-            ("app_user", user) => {
-                let hdr = match decode_header(&user) {
-                    Err(_) => return Err("invalid token: no header".into()),
-                    Ok(hdr) => hdr,
-                };
-                let kid = hdr.kid.unwrap();
-                tracing::info!("decoding token with kid: {}, alg: {:?}", &kid, &hdr.alg);
-                let jwks = self.jwks.lock().unwrap();
+        tracing::info!("auth header: {:?}", auth_hdr);
 
-                let jwk = match jwks.find(&kid) {
-                    None => {
-                        warn!("jwk not found for kid: {}", &kid);
-                        return Err("invalid token: key not found".into());
-                    }
-                    Some(jwk) => jwk,
-                };
+        let auth_info = self.get_auth_type(auth_hdr);
 
-                let mut validation = Validation::new(hdr.alg);
-                validation.set_audience(&vec!["cqrl".to_string()]);
+        let ctx = self.validate_auth(auth_info, context.clone()).await;
 
-                let claims = decode::<Claims>(
-                    user.as_str(),
-                    &DecodingKey::from_jwk(jwk).unwrap(),
-                    &validation,
-                );
-
-                match claims {
-                    Ok(claims) => {
-                        ctx.insert(AUTH_CONTEXT_ID_KEY.to_string(), claims.claims.sub);
-                    }
-                    Err(e) => {
-                        warn!("invalid token: cannot decode claims: {}", e);
-                        return Err("invalid token: cannot decode claims".into());
-                    }
-                }
-
-                ctx.insert(AUTH_CONTEXT_TYPE_KEY.to_string(), "app_user".to_string());
-            }
-            ("api_key", _key) => {
-                ctx.insert(AUTH_CONTEXT_TYPE_KEY.to_string(), "api_key".to_string());
-            }
-            (_, _) => {
-                ctx.insert(
-                    AUTH_CONTEXT_TYPE_KEY.to_string(),
-                    "unauthenticated".to_string(),
-                );
-            }
-        }
+        tracing::info!("auth context: {:?}", ctx);
 
         Ok(ctx)
     }

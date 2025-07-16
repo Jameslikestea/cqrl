@@ -12,7 +12,9 @@ use parser::API;
 use serde_json::Value;
 use tracing::instrument;
 
-use crate::chains::keys::{AUTH_CONTEXT_TYPE_KEY, RESPONSE_HEADER_COMMAND_KEY};
+use crate::chains::keys::{
+    AUTH_CONTEXT_ID_KEY, AUTH_CONTEXT_TYPE_KEY, RESPONSE_HEADER_COMMAND_KEY,
+};
 
 use super::{
     keys::{COMMAND_BODY_KEY, METHOD_KEY, RESPONSE_DATA_KEY, RESPONSE_HEADER_ETAG_KEY},
@@ -162,6 +164,13 @@ impl ChainLink for MongoCommandChain {
                 None => "unauthenticated".to_string(),
             }),
         );
+
+        match context.get(AUTH_CONTEXT_ID_KEY) {
+            Some(auth_id) => {
+                auth_context.insert("authid", Bson::String(auth_id.to_string()));
+            }
+            None => {}
+        }
 
         let mut metadata = Document::new();
         metadata.insert("type", Bson::String(method.to_string()));

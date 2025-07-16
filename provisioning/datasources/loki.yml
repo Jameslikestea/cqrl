@@ -5,3 +5,4 @@ datasources:
     type: loki
     url: http://loki:3100
     default: true
+    uid: loki
