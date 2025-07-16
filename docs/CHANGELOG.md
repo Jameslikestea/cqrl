@@ -3,6 +3,14 @@ layout: page
 title: Change Log
 permalink: /changelog
 ---
+## v0.6.0 - 2025-07-16
+### Features
+- Add authentication for app_user type (#7)
+- Rate limit on auth context (#8)
+
+### Chore
+- Update chains to accept arc
+
 ## v0.5.0 - 2025-07-08
 ### Documentation
 - Add roadmap
