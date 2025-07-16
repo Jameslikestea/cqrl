@@ -38,6 +38,8 @@ pub(crate) enum Commands {
         mongodb_address: String,
         #[arg(long, short, default_value_t = String::from("nats://localhost:4222"))]
         nats_address: String,
+        #[arg(long = "jwks-endpoint")]
+        jwks_url: Option<String>,
     },
 }
 
@@ -48,6 +50,7 @@ impl Default for Commands {
             database_mode: String::from("mongodb"),
             mongodb_address: String::from("mongodb://cqrl:cqrl@localhost:27017/cqrl"),
             nats_address: String::from("nats://localhost:4222"),
+            jwks_url: None,
         }
     }
 }
@@ -79,6 +82,7 @@ impl Commands {
                 database_mode,
                 mongodb_address,
                 nats_address,
+                jwks_url,
             } => {
                 {
                     info!("Serving CQRL for {}", input);
@@ -157,7 +161,7 @@ impl Commands {
                                 };
                             }
                         });
-                        server_v2::run(api.clone(), Arc::new(client.clone())).await;
+                        server_v2::run(api.clone(), Arc::new(client.clone()), jwks_url).await;
                     }
                     mode => {
                         error!("Unsupported database type: {}", mode);

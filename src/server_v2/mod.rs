@@ -7,13 +7,11 @@ use tracing::instrument;
 use crate::chains;
 
 #[instrument(skip(api, store))]
-pub(crate) async fn run(api: Arc<API>, store: Arc<mongodb::Client>) {
+pub(crate) async fn run(api: Arc<API>, store: Arc<mongodb::Client>, jwks_url: Option<String>) {
     let query_chain = chains::ProcessingChain::new(vec![
         Arc::new(chains::request::HeaderChain),
         Arc::new(chains::ratelimit::RateLimitChain::new(store.clone())),
-        Arc::new(chains::auth::AuthChain::new(Some(
-            "http://localhost:8080/.well-known/jwks.json".to_string(),
-        ))),
+        Arc::new(chains::auth::AuthChain::new(jwks_url.clone())),
         Arc::new(chains::log::LogChain),
         Arc::new(chains::url::URLChain),
         Arc::new(chains::methods::QueryMethod::new(api.clone())),
@@ -26,9 +24,7 @@ pub(crate) async fn run(api: Arc<API>, store: Arc<mongodb::Client>) {
     let command_chain = chains::ProcessingChain::new(vec![
         Arc::new(chains::request::HeaderChain),
         Arc::new(chains::ratelimit::RateLimitChain::new(store.clone())),
-        Arc::new(chains::auth::AuthChain::new(Some(
-            "http://localhost:8080/.well-known/jwks.json".to_string(),
-        ))),
+        Arc::new(chains::auth::AuthChain::new(jwks_url.clone())),
         Arc::new(chains::log::LogChain),
         Arc::new(chains::url::URLChain),
         Arc::new(chains::methods::CommandMethod::new(api.clone())),
