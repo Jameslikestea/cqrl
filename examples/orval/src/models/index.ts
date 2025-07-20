@@ -13,6 +13,8 @@ export * from './commandUnauthorizedResponse';
 export * from './commandUpdatePostBody';
 export * from './getQueryPostsParams';
 export * from './getQueryTestParams';
+export * from './headQueryPostsParams';
+export * from './headQueryTestParams';
 export * from './post';
 export * from './postCommandNewPostParams';
 export * from './postCommandUpdatePostParams';

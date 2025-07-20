@@ -5,25 +5,24 @@
  * OpenAPI spec version: 1.0.0
  */
 import {
+  createMutation,
   createQuery
 } from '@tanstack/svelte-query';
 import type {
+  CreateMutationOptions,
+  CreateMutationResult,
   CreateQueryOptions,
   CreateQueryResult,
+  MutationFunction,
   QueryFunction,
   QueryKey
 } from '@tanstack/svelte-query';
 
-import axios from 'axios';
-import type {
-  AxiosError,
-  AxiosRequestConfig,
-  AxiosResponse
-} from 'axios';
-
 import type {
   GetQueryPostsParams,
   GetQueryTestParams,
+  HeadQueryPostsParams,
+  HeadQueryTestParams,
   QueryInternalResponse,
   QueryNotfoundResponse,
   QueryPostsSuccessResponse,
@@ -39,17 +38,69 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 
 
 
-export const getQueryPosts = (
-    params: GetQueryPostsParams, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<QueryPostsSuccessResponse>> => {
+export type getQueryPostsResponse200 = {
+  data: QueryPostsSuccessResponse
+  status: 200
+}
+
+export type getQueryPostsResponse304 = {
+  data: void
+  status: 304
+}
+
+export type getQueryPostsResponse401 = {
+  data: QueryUnauthorizedResponse
+  status: 401
+}
+
+export type getQueryPostsResponse404 = {
+  data: QueryNotfoundResponse
+  status: 404
+}
+
+export type getQueryPostsResponse500 = {
+  data: QueryInternalResponse
+  status: 500
+}
     
+export type getQueryPostsResponseComposite = getQueryPostsResponse200 | getQueryPostsResponse304 | getQueryPostsResponse401 | getQueryPostsResponse404 | getQueryPostsResponse500;
     
-    return axios.get(
-      `/query/posts`,{
+export type getQueryPostsResponse = getQueryPostsResponseComposite & {
+  headers: Headers;
+}
+
+export const getGetQueryPostsUrl = (params: GetQueryPostsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/query/posts?${stringifiedParams}` : `/query/posts`
+}
+
+export const getQueryPosts = async (params: GetQueryPostsParams, options?: RequestInit): Promise<getQueryPostsResponse> => {
+  
+  const res = await fetch(getGetQueryPostsUrl(params),
+  {      
     ...options,
-        params: {...params, ...options?.params},}
-    );
+    method: 'GET'
+    
+    
   }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+  const data: getQueryPostsResponse['data'] = body ? JSON.parse(body) : {}
+
+  return { data, status: res.status, headers: res.headers } as getQueryPostsResponse
+}
+
 
 
 export const getGetQueryPostsQueryKey = (params: GetQueryPostsParams,) => {
@@ -57,16 +108,16 @@ export const getGetQueryPostsQueryKey = (params: GetQueryPostsParams,) => {
     }
 
     
-export const getGetQueryPostsQueryOptions = <TData = Awaited<ReturnType<typeof getQueryPosts>>, TError = AxiosError<QueryUnauthorizedResponse | QueryNotfoundResponse | QueryInternalResponse>>(params: GetQueryPostsParams, options?: { query?:CreateQueryOptions<Awaited<ReturnType<typeof getQueryPosts>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetQueryPostsQueryOptions = <TData = Awaited<ReturnType<typeof getQueryPosts>>, TError = void | QueryUnauthorizedResponse | QueryNotfoundResponse | QueryInternalResponse>(params: GetQueryPostsParams, options?: { query?:CreateQueryOptions<Awaited<ReturnType<typeof getQueryPosts>>, TError, TData>, fetch?: RequestInit}
 ) => {
 
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
+const {query: queryOptions, fetch: fetchOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetQueryPostsQueryKey(params);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getQueryPosts>>> = ({ signal }) => getQueryPosts(params, { signal, ...axiosOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getQueryPosts>>> = ({ signal }) => getQueryPosts(params, { signal, ...fetchOptions });
 
       
 
@@ -76,12 +127,12 @@ const {query: queryOptions, axios: axiosOptions} = options ?? {};
 }
 
 export type GetQueryPostsQueryResult = NonNullable<Awaited<ReturnType<typeof getQueryPosts>>>
-export type GetQueryPostsQueryError = AxiosError<QueryUnauthorizedResponse | QueryNotfoundResponse | QueryInternalResponse>
+export type GetQueryPostsQueryError = void | QueryUnauthorizedResponse | QueryNotfoundResponse | QueryInternalResponse
 
 
 
-export function createGetQueryPosts<TData = Awaited<ReturnType<typeof getQueryPosts>>, TError = AxiosError<QueryUnauthorizedResponse | QueryNotfoundResponse | QueryInternalResponse>>(
- params: GetQueryPostsParams, options?: { query?:CreateQueryOptions<Awaited<ReturnType<typeof getQueryPosts>>, TError, TData>, axios?: AxiosRequestConfig}
+export function createGetQueryPosts<TData = Awaited<ReturnType<typeof getQueryPosts>>, TError = void | QueryUnauthorizedResponse | QueryNotfoundResponse | QueryInternalResponse>(
+ params: GetQueryPostsParams, options?: { query?:CreateQueryOptions<Awaited<ReturnType<typeof getQueryPosts>>, TError, TData>, fetch?: RequestInit}
   
  ): CreateQueryResult<TData, TError> & { queryKey: QueryKey } {
 
@@ -96,17 +147,172 @@ export function createGetQueryPosts<TData = Awaited<ReturnType<typeof getQueryPo
 
 
 
-export const getQueryTest = (
-    params: GetQueryTestParams, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<QueryTestSuccessResponse>> => {
+export type headQueryPostsResponse200 = {
+  data: void
+  status: 200
+}
+
+export type headQueryPostsResponse304 = {
+  data: void
+  status: 304
+}
+
+export type headQueryPostsResponse401 = {
+  data: QueryUnauthorizedResponse
+  status: 401
+}
+
+export type headQueryPostsResponse404 = {
+  data: QueryNotfoundResponse
+  status: 404
+}
+
+export type headQueryPostsResponse500 = {
+  data: QueryInternalResponse
+  status: 500
+}
     
+export type headQueryPostsResponseComposite = headQueryPostsResponse200 | headQueryPostsResponse304 | headQueryPostsResponse401 | headQueryPostsResponse404 | headQueryPostsResponse500;
     
-    return axios.get(
-      `/query/test`,{
+export type headQueryPostsResponse = headQueryPostsResponseComposite & {
+  headers: Headers;
+}
+
+export const getHeadQueryPostsUrl = (params: HeadQueryPostsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/query/posts?${stringifiedParams}` : `/query/posts`
+}
+
+export const headQueryPosts = async (params: HeadQueryPostsParams, options?: RequestInit): Promise<headQueryPostsResponse> => {
+  
+  const res = await fetch(getHeadQueryPostsUrl(params),
+  {      
     ...options,
-        params: {...params, ...options?.params},}
-    );
+    method: 'HEAD'
+    
+    
   }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+  const data: headQueryPostsResponse['data'] = body ? JSON.parse(body) : {}
+
+  return { data, status: res.status, headers: res.headers } as headQueryPostsResponse
+}
+
+
+
+
+export const getHeadQueryPostsMutationOptions = <TError = void | QueryUnauthorizedResponse | QueryNotfoundResponse | QueryInternalResponse,
+    TContext = unknown>(options?: { mutation?:CreateMutationOptions<Awaited<ReturnType<typeof headQueryPosts>>, TError,{params: HeadQueryPostsParams}, TContext>, fetch?: RequestInit}
+): CreateMutationOptions<Awaited<ReturnType<typeof headQueryPosts>>, TError,{params: HeadQueryPostsParams}, TContext> => {
+
+const mutationKey = ['headQueryPosts'];
+const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, fetch: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof headQueryPosts>>, {params: HeadQueryPostsParams}> = (props) => {
+          const {params} = props ?? {};
+
+          return  headQueryPosts(params,fetchOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type HeadQueryPostsMutationResult = NonNullable<Awaited<ReturnType<typeof headQueryPosts>>>
+    
+    export type HeadQueryPostsMutationError = void | QueryUnauthorizedResponse | QueryNotfoundResponse | QueryInternalResponse
+
+    export const createHeadQueryPosts = <TError = void | QueryUnauthorizedResponse | QueryNotfoundResponse | QueryInternalResponse,
+    TContext = unknown>(options?: { mutation?:CreateMutationOptions<Awaited<ReturnType<typeof headQueryPosts>>, TError,{params: HeadQueryPostsParams}, TContext>, fetch?: RequestInit}
+ ): CreateMutationResult<
+        Awaited<ReturnType<typeof headQueryPosts>>,
+        TError,
+        {params: HeadQueryPostsParams},
+        TContext
+      > => {
+
+      const mutationOptions = getHeadQueryPostsMutationOptions(options);
+
+      return createMutation(mutationOptions );
+    }
+    export type getQueryTestResponse200 = {
+  data: QueryTestSuccessResponse
+  status: 200
+}
+
+export type getQueryTestResponse304 = {
+  data: void
+  status: 304
+}
+
+export type getQueryTestResponse404 = {
+  data: QueryNotfoundResponse
+  status: 404
+}
+
+export type getQueryTestResponse500 = {
+  data: QueryInternalResponse
+  status: 500
+}
+    
+export type getQueryTestResponseComposite = getQueryTestResponse200 | getQueryTestResponse304 | getQueryTestResponse404 | getQueryTestResponse500;
+    
+export type getQueryTestResponse = getQueryTestResponseComposite & {
+  headers: Headers;
+}
+
+export const getGetQueryTestUrl = (params: GetQueryTestParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/query/test?${stringifiedParams}` : `/query/test`
+}
+
+export const getQueryTest = async (params: GetQueryTestParams, options?: RequestInit): Promise<getQueryTestResponse> => {
+  
+  const res = await fetch(getGetQueryTestUrl(params),
+  {      
+    ...options,
+    method: 'GET'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+  const data: getQueryTestResponse['data'] = body ? JSON.parse(body) : {}
+
+  return { data, status: res.status, headers: res.headers } as getQueryTestResponse
+}
+
 
 
 export const getGetQueryTestQueryKey = (params: GetQueryTestParams,) => {
@@ -114,16 +320,16 @@ export const getGetQueryTestQueryKey = (params: GetQueryTestParams,) => {
     }
 
     
-export const getGetQueryTestQueryOptions = <TData = Awaited<ReturnType<typeof getQueryTest>>, TError = AxiosError<QueryUnauthorizedResponse | QueryNotfoundResponse | QueryInternalResponse>>(params: GetQueryTestParams, options?: { query?:CreateQueryOptions<Awaited<ReturnType<typeof getQueryTest>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetQueryTestQueryOptions = <TData = Awaited<ReturnType<typeof getQueryTest>>, TError = void | QueryNotfoundResponse | QueryInternalResponse>(params: GetQueryTestParams, options?: { query?:CreateQueryOptions<Awaited<ReturnType<typeof getQueryTest>>, TError, TData>, fetch?: RequestInit}
 ) => {
 
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
+const {query: queryOptions, fetch: fetchOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetQueryTestQueryKey(params);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getQueryTest>>> = ({ signal }) => getQueryTest(params, { signal, ...axiosOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getQueryTest>>> = ({ signal }) => getQueryTest(params, { signal, ...fetchOptions });
 
       
 
@@ -133,12 +339,12 @@ const {query: queryOptions, axios: axiosOptions} = options ?? {};
 }
 
 export type GetQueryTestQueryResult = NonNullable<Awaited<ReturnType<typeof getQueryTest>>>
-export type GetQueryTestQueryError = AxiosError<QueryUnauthorizedResponse | QueryNotfoundResponse | QueryInternalResponse>
+export type GetQueryTestQueryError = void | QueryNotfoundResponse | QueryInternalResponse
 
 
 
-export function createGetQueryTest<TData = Awaited<ReturnType<typeof getQueryTest>>, TError = AxiosError<QueryUnauthorizedResponse | QueryNotfoundResponse | QueryInternalResponse>>(
- params: GetQueryTestParams, options?: { query?:CreateQueryOptions<Awaited<ReturnType<typeof getQueryTest>>, TError, TData>, axios?: AxiosRequestConfig}
+export function createGetQueryTest<TData = Awaited<ReturnType<typeof getQueryTest>>, TError = void | QueryNotfoundResponse | QueryInternalResponse>(
+ params: GetQueryTestParams, options?: { query?:CreateQueryOptions<Awaited<ReturnType<typeof getQueryTest>>, TError, TData>, fetch?: RequestInit}
   
  ): CreateQueryResult<TData, TError> & { queryKey: QueryKey } {
 
@@ -153,3 +359,107 @@ export function createGetQueryTest<TData = Awaited<ReturnType<typeof getQueryTes
 
 
 
+export type headQueryTestResponse200 = {
+  data: void
+  status: 200
+}
+
+export type headQueryTestResponse304 = {
+  data: void
+  status: 304
+}
+
+export type headQueryTestResponse404 = {
+  data: QueryNotfoundResponse
+  status: 404
+}
+
+export type headQueryTestResponse500 = {
+  data: QueryInternalResponse
+  status: 500
+}
+    
+export type headQueryTestResponseComposite = headQueryTestResponse200 | headQueryTestResponse304 | headQueryTestResponse404 | headQueryTestResponse500;
+    
+export type headQueryTestResponse = headQueryTestResponseComposite & {
+  headers: Headers;
+}
+
+export const getHeadQueryTestUrl = (params: HeadQueryTestParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/query/test?${stringifiedParams}` : `/query/test`
+}
+
+export const headQueryTest = async (params: HeadQueryTestParams, options?: RequestInit): Promise<headQueryTestResponse> => {
+  
+  const res = await fetch(getHeadQueryTestUrl(params),
+  {      
+    ...options,
+    method: 'HEAD'
+    
+    
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+  const data: headQueryTestResponse['data'] = body ? JSON.parse(body) : {}
+
+  return { data, status: res.status, headers: res.headers } as headQueryTestResponse
+}
+
+
+
+
+export const getHeadQueryTestMutationOptions = <TError = void | QueryNotfoundResponse | QueryInternalResponse,
+    TContext = unknown>(options?: { mutation?:CreateMutationOptions<Awaited<ReturnType<typeof headQueryTest>>, TError,{params: HeadQueryTestParams}, TContext>, fetch?: RequestInit}
+): CreateMutationOptions<Awaited<ReturnType<typeof headQueryTest>>, TError,{params: HeadQueryTestParams}, TContext> => {
+
+const mutationKey = ['headQueryTest'];
+const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, fetch: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof headQueryTest>>, {params: HeadQueryTestParams}> = (props) => {
+          const {params} = props ?? {};
+
+          return  headQueryTest(params,fetchOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type HeadQueryTestMutationResult = NonNullable<Awaited<ReturnType<typeof headQueryTest>>>
+    
+    export type HeadQueryTestMutationError = void | QueryNotfoundResponse | QueryInternalResponse
+
+    export const createHeadQueryTest = <TError = void | QueryNotfoundResponse | QueryInternalResponse,
+    TContext = unknown>(options?: { mutation?:CreateMutationOptions<Awaited<ReturnType<typeof headQueryTest>>, TError,{params: HeadQueryTestParams}, TContext>, fetch?: RequestInit}
+ ): CreateMutationResult<
+        Awaited<ReturnType<typeof headQueryTest>>,
+        TError,
+        {params: HeadQueryTestParams},
+        TContext
+      > => {
+
+      const mutationOptions = getHeadQueryTestMutationOptions(options);
+
+      return createMutation(mutationOptions );
+    }
+    

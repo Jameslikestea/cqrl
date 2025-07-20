@@ -6,6 +6,7 @@ export default {
             client: 'svelte-query',
             mode: 'tags-split',
             schemas: './src/models',
+            httpClient: 'fetch',
         },
     },
 };

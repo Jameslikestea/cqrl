@@ -13,13 +13,6 @@ import type {
   MutationFunction
 } from '@tanstack/svelte-query';
 
-import axios from 'axios';
-import type {
-  AxiosError,
-  AxiosRequestConfig,
-  AxiosResponse
-} from 'axios';
-
 import type {
   CommandBaddataResponse,
   CommandInternalResponse,
@@ -39,32 +32,74 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 
 
 
-export const postCommandNewPost = (
-    commandNewPostBody: CommandNewPostBody,
-    params?: PostCommandNewPostParams, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<CommandSuccessResponse>> => {
+export type postCommandNewPostResponse202 = {
+  data: CommandSuccessResponse
+  status: 202
+}
+
+export type postCommandNewPostResponse422 = {
+  data: CommandBaddataResponse
+  status: 422
+}
+
+export type postCommandNewPostResponse500 = {
+  data: CommandInternalResponse
+  status: 500
+}
     
+export type postCommandNewPostResponseComposite = postCommandNewPostResponse202 | postCommandNewPostResponse422 | postCommandNewPostResponse500;
     
-    return axios.post(
-      `/command/new_post`,
-      commandNewPostBody,{
+export type postCommandNewPostResponse = postCommandNewPostResponseComposite & {
+  headers: Headers;
+}
+
+export const getPostCommandNewPostUrl = (params?: PostCommandNewPostParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/command/new_post?${stringifiedParams}` : `/command/new_post`
+}
+
+export const postCommandNewPost = async (commandNewPostBody: CommandNewPostBody,
+    params?: PostCommandNewPostParams, options?: RequestInit): Promise<postCommandNewPostResponse> => {
+  
+  const res = await fetch(getPostCommandNewPostUrl(params),
+  {      
     ...options,
-        params: {...params, ...options?.params},}
-    );
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      commandNewPostBody,)
   }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+  const data: postCommandNewPostResponse['data'] = body ? JSON.parse(body) : {}
+
+  return { data, status: res.status, headers: res.headers } as postCommandNewPostResponse
+}
 
 
 
-export const getPostCommandNewPostMutationOptions = <TError = AxiosError<CommandUnauthorizedResponse | CommandBaddataResponse | CommandInternalResponse>,
-    TContext = unknown>(options?: { mutation?:CreateMutationOptions<Awaited<ReturnType<typeof postCommandNewPost>>, TError,{data: CommandNewPostBody;params?: PostCommandNewPostParams}, TContext>, axios?: AxiosRequestConfig}
+
+export const getPostCommandNewPostMutationOptions = <TError = CommandBaddataResponse | CommandInternalResponse,
+    TContext = unknown>(options?: { mutation?:CreateMutationOptions<Awaited<ReturnType<typeof postCommandNewPost>>, TError,{data: CommandNewPostBody;params?: PostCommandNewPostParams}, TContext>, fetch?: RequestInit}
 ): CreateMutationOptions<Awaited<ReturnType<typeof postCommandNewPost>>, TError,{data: CommandNewPostBody;params?: PostCommandNewPostParams}, TContext> => {
 
 const mutationKey = ['postCommandNewPost'];
-const {mutation: mutationOptions, axios: axiosOptions} = options ?
+const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, axios: undefined};
+      : {mutation: { mutationKey, }, fetch: undefined};
 
       
 
@@ -72,7 +107,7 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof postCommandNewPost>>, {data: CommandNewPostBody;params?: PostCommandNewPostParams}> = (props) => {
           const {data,params} = props ?? {};
 
-          return  postCommandNewPost(data,params,axiosOptions)
+          return  postCommandNewPost(data,params,fetchOptions)
         }
 
         
@@ -82,10 +117,10 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
 
     export type PostCommandNewPostMutationResult = NonNullable<Awaited<ReturnType<typeof postCommandNewPost>>>
     export type PostCommandNewPostMutationBody = CommandNewPostBody
-    export type PostCommandNewPostMutationError = AxiosError<CommandUnauthorizedResponse | CommandBaddataResponse | CommandInternalResponse>
+    export type PostCommandNewPostMutationError = CommandBaddataResponse | CommandInternalResponse
 
-    export const createPostCommandNewPost = <TError = AxiosError<CommandUnauthorizedResponse | CommandBaddataResponse | CommandInternalResponse>,
-    TContext = unknown>(options?: { mutation?:CreateMutationOptions<Awaited<ReturnType<typeof postCommandNewPost>>, TError,{data: CommandNewPostBody;params?: PostCommandNewPostParams}, TContext>, axios?: AxiosRequestConfig}
+    export const createPostCommandNewPost = <TError = CommandBaddataResponse | CommandInternalResponse,
+    TContext = unknown>(options?: { mutation?:CreateMutationOptions<Awaited<ReturnType<typeof postCommandNewPost>>, TError,{data: CommandNewPostBody;params?: PostCommandNewPostParams}, TContext>, fetch?: RequestInit}
  ): CreateMutationResult<
         Awaited<ReturnType<typeof postCommandNewPost>>,
         TError,
@@ -97,32 +132,79 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
 
       return createMutation(mutationOptions );
     }
-    export const postCommandUpdatePost = (
-    commandUpdatePostBody: CommandUpdatePostBody,
-    params?: PostCommandUpdatePostParams, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<CommandSuccessResponse>> => {
+    export type postCommandUpdatePostResponse202 = {
+  data: CommandSuccessResponse
+  status: 202
+}
+
+export type postCommandUpdatePostResponse401 = {
+  data: CommandUnauthorizedResponse
+  status: 401
+}
+
+export type postCommandUpdatePostResponse422 = {
+  data: CommandBaddataResponse
+  status: 422
+}
+
+export type postCommandUpdatePostResponse500 = {
+  data: CommandInternalResponse
+  status: 500
+}
     
+export type postCommandUpdatePostResponseComposite = postCommandUpdatePostResponse202 | postCommandUpdatePostResponse401 | postCommandUpdatePostResponse422 | postCommandUpdatePostResponse500;
     
-    return axios.post(
-      `/command/update_post`,
-      commandUpdatePostBody,{
+export type postCommandUpdatePostResponse = postCommandUpdatePostResponseComposite & {
+  headers: Headers;
+}
+
+export const getPostCommandUpdatePostUrl = (params?: PostCommandUpdatePostParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/command/update_post?${stringifiedParams}` : `/command/update_post`
+}
+
+export const postCommandUpdatePost = async (commandUpdatePostBody: CommandUpdatePostBody,
+    params?: PostCommandUpdatePostParams, options?: RequestInit): Promise<postCommandUpdatePostResponse> => {
+  
+  const res = await fetch(getPostCommandUpdatePostUrl(params),
+  {      
     ...options,
-        params: {...params, ...options?.params},}
-    );
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      commandUpdatePostBody,)
   }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text()
+  const data: postCommandUpdatePostResponse['data'] = body ? JSON.parse(body) : {}
+
+  return { data, status: res.status, headers: res.headers } as postCommandUpdatePostResponse
+}
 
 
 
-export const getPostCommandUpdatePostMutationOptions = <TError = AxiosError<CommandUnauthorizedResponse | CommandBaddataResponse | CommandInternalResponse>,
-    TContext = unknown>(options?: { mutation?:CreateMutationOptions<Awaited<ReturnType<typeof postCommandUpdatePost>>, TError,{data: CommandUpdatePostBody;params?: PostCommandUpdatePostParams}, TContext>, axios?: AxiosRequestConfig}
+
+export const getPostCommandUpdatePostMutationOptions = <TError = CommandUnauthorizedResponse | CommandBaddataResponse | CommandInternalResponse,
+    TContext = unknown>(options?: { mutation?:CreateMutationOptions<Awaited<ReturnType<typeof postCommandUpdatePost>>, TError,{data: CommandUpdatePostBody;params?: PostCommandUpdatePostParams}, TContext>, fetch?: RequestInit}
 ): CreateMutationOptions<Awaited<ReturnType<typeof postCommandUpdatePost>>, TError,{data: CommandUpdatePostBody;params?: PostCommandUpdatePostParams}, TContext> => {
 
 const mutationKey = ['postCommandUpdatePost'];
-const {mutation: mutationOptions, axios: axiosOptions} = options ?
+const {mutation: mutationOptions, fetch: fetchOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
       : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, axios: undefined};
+      : {mutation: { mutationKey, }, fetch: undefined};
 
       
 
@@ -130,7 +212,7 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof postCommandUpdatePost>>, {data: CommandUpdatePostBody;params?: PostCommandUpdatePostParams}> = (props) => {
           const {data,params} = props ?? {};
 
-          return  postCommandUpdatePost(data,params,axiosOptions)
+          return  postCommandUpdatePost(data,params,fetchOptions)
         }
 
         
@@ -140,10 +222,10 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
 
     export type PostCommandUpdatePostMutationResult = NonNullable<Awaited<ReturnType<typeof postCommandUpdatePost>>>
     export type PostCommandUpdatePostMutationBody = CommandUpdatePostBody
-    export type PostCommandUpdatePostMutationError = AxiosError<CommandUnauthorizedResponse | CommandBaddataResponse | CommandInternalResponse>
+    export type PostCommandUpdatePostMutationError = CommandUnauthorizedResponse | CommandBaddataResponse | CommandInternalResponse
 
-    export const createPostCommandUpdatePost = <TError = AxiosError<CommandUnauthorizedResponse | CommandBaddataResponse | CommandInternalResponse>,
-    TContext = unknown>(options?: { mutation?:CreateMutationOptions<Awaited<ReturnType<typeof postCommandUpdatePost>>, TError,{data: CommandUpdatePostBody;params?: PostCommandUpdatePostParams}, TContext>, axios?: AxiosRequestConfig}
+    export const createPostCommandUpdatePost = <TError = CommandUnauthorizedResponse | CommandBaddataResponse | CommandInternalResponse,
+    TContext = unknown>(options?: { mutation?:CreateMutationOptions<Awaited<ReturnType<typeof postCommandUpdatePost>>, TError,{data: CommandUpdatePostBody;params?: PostCommandUpdatePostParams}, TContext>, fetch?: RequestInit}
  ): CreateMutationResult<
         Awaited<ReturnType<typeof postCommandUpdatePost>>,
         TError,

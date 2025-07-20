@@ -105,10 +105,14 @@ fn generate_paths(
                                 openapiv3::StatusCode::Code(202),
                                 ReferenceOr::ref_("#/components/responses/command.success"),
                             );
-                            imap.insert(
-                                openapiv3::StatusCode::Code(401),
-                                ReferenceOr::ref_("#/components/responses/command.unauthorized"),
-                            );
+                            if !command.public {
+                                imap.insert(
+                                    openapiv3::StatusCode::Code(401),
+                                    ReferenceOr::ref_(
+                                        "#/components/responses/command.unauthorized",
+                                    ),
+                                );
+                            }
                             imap.insert(
                                 openapiv3::StatusCode::Code(422),
                                 ReferenceOr::ref_("#/components/responses/command.baddata"),
@@ -222,6 +226,30 @@ fn generate_paths(
                             style: openapiv3::QueryStyle::Form,
                             allow_empty_value: None,
                         }),
+                        ReferenceOr::Item(openapiv3::Parameter::Header {
+                            parameter_data: ParameterData {
+                                name: "If-None-Match".to_string(),
+                                required: false,
+                                format: openapiv3::ParameterSchemaOrContent::Schema(
+                                    ReferenceOr::Item(Schema {
+                                        schema_data: SchemaData {
+                                            ..Default::default()
+                                        },
+                                        schema_kind: SchemaKind::Type(Type::String(StringType {
+                                            pattern: Some("\"[0-9A-HJKMNP-TV-Z]{26}\"".to_string()),
+                                            ..Default::default()
+                                        })),
+                                    }),
+                                ),
+                                explode: None,
+                                deprecated: None,
+                                description: None,
+                                example: None,
+                                examples: IndexMap::new(),
+                                extensions: IndexMap::new(),
+                            },
+                            style: openapiv3::HeaderStyle::Simple,
+                        }),
                     ],
                     tags: vec!["queries".to_string()],
                     responses: Responses {
@@ -236,9 +264,171 @@ fn generate_paths(
                                 ),
                             );
                             responses.insert(
-                                openapiv3::StatusCode::Code(401),
-                                ReferenceOr::ref_("#/components/responses/query.unauthorized"),
+                                openapiv3::StatusCode::Code(304),
+                                ReferenceOr::Item(Response {
+                                    description: "Query not modified".to_string(),
+                                    ..Default::default()
+                                }),
                             );
+                            if !query.public {
+                                responses.insert(
+                                    openapiv3::StatusCode::Code(401),
+                                    ReferenceOr::ref_("#/components/responses/query.unauthorized"),
+                                );
+                            }
+                            responses.insert(
+                                openapiv3::StatusCode::Code(404),
+                                ReferenceOr::ref_("#/components/responses/query.notfound"),
+                            );
+                            responses.insert(
+                                openapiv3::StatusCode::Code(500),
+                                ReferenceOr::ref_("#/components/responses/query.internal"),
+                            );
+
+                            responses
+                        },
+                        ..Default::default()
+                    },
+                    security: if !query.public {
+                        Some(vec![IndexMap::from([("bearerAuth".to_string(), vec![])])])
+                    } else {
+                        None
+                    },
+                    ..Default::default()
+                }),
+                head: Some(Operation {
+                    parameters: vec![
+                        ReferenceOr::Item(openapiv3::Parameter::Query {
+                            parameter_data: ParameterData {
+                                name: "id".to_string(),
+                                required: false,
+                                format: openapiv3::ParameterSchemaOrContent::Schema(
+                                    ReferenceOr::Item(Schema {
+                                        schema_data: SchemaData {
+                                            ..Default::default()
+                                        },
+                                        schema_kind: SchemaKind::Type(Type::String(StringType {
+                                            pattern: Some("[0-9A-HJKMNP-TV-Z]{26}".to_string()),
+                                            ..Default::default()
+                                        })),
+                                    }),
+                                ),
+                                explode: None,
+                                deprecated: None,
+                                description: None,
+                                example: None,
+                                examples: IndexMap::new(),
+                                extensions: IndexMap::new(),
+                            },
+                            allow_reserved: false,
+                            style: openapiv3::QueryStyle::Form,
+                            allow_empty_value: None,
+                        }),
+                        ReferenceOr::Item(openapiv3::Parameter::Query {
+                            parameter_data: ParameterData {
+                                name: "page_size".to_string(),
+                                required: true,
+                                format: openapiv3::ParameterSchemaOrContent::Schema(
+                                    ReferenceOr::Item(Schema {
+                                        schema_data: SchemaData {
+                                            default: Some(serde_json::json!(50)),
+                                            ..Default::default()
+                                        },
+                                        schema_kind: SchemaKind::Type(Type::Number(NumberType {
+                                            minimum: Some(1.0),
+                                            maximum: Some(100.0),
+                                            ..Default::default()
+                                        })),
+                                    }),
+                                ),
+                                explode: None,
+                                deprecated: None,
+                                description: None,
+                                example: None,
+                                examples: IndexMap::new(),
+                                extensions: IndexMap::new(),
+                            },
+                            allow_reserved: false,
+                            style: openapiv3::QueryStyle::Form,
+                            allow_empty_value: None,
+                        }),
+                        ReferenceOr::Item(openapiv3::Parameter::Query {
+                            parameter_data: ParameterData {
+                                name: "page".to_string(),
+                                required: true,
+                                format: openapiv3::ParameterSchemaOrContent::Schema(
+                                    ReferenceOr::Item(Schema {
+                                        schema_data: SchemaData {
+                                            default: Some(serde_json::json!(1)),
+                                            ..Default::default()
+                                        },
+                                        schema_kind: SchemaKind::Type(Type::Number(NumberType {
+                                            minimum: Some(1.0),
+                                            ..Default::default()
+                                        })),
+                                    }),
+                                ),
+                                explode: None,
+                                deprecated: None,
+                                description: None,
+                                example: None,
+                                examples: IndexMap::new(),
+                                extensions: IndexMap::new(),
+                            },
+                            allow_reserved: false,
+                            style: openapiv3::QueryStyle::Form,
+                            allow_empty_value: None,
+                        }),
+                        ReferenceOr::Item(openapiv3::Parameter::Header {
+                            parameter_data: ParameterData {
+                                name: "If-None-Match".to_string(),
+                                required: false,
+                                format: openapiv3::ParameterSchemaOrContent::Schema(
+                                    ReferenceOr::Item(Schema {
+                                        schema_data: SchemaData {
+                                            ..Default::default()
+                                        },
+                                        schema_kind: SchemaKind::Type(Type::String(StringType {
+                                            pattern: Some("\"[0-9A-HJKMNP-TV-Z]{26}\"".to_string()),
+                                            ..Default::default()
+                                        })),
+                                    }),
+                                ),
+                                explode: None,
+                                deprecated: None,
+                                description: None,
+                                example: None,
+                                examples: IndexMap::new(),
+                                extensions: IndexMap::new(),
+                            },
+                            style: openapiv3::HeaderStyle::Simple,
+                        }),
+                    ],
+                    tags: vec!["queries".to_string()],
+                    responses: Responses {
+                        responses: {
+                            let mut responses = IndexMap::new();
+
+                            responses.insert(
+                                openapiv3::StatusCode::Code(200),
+                                ReferenceOr::Item(Response {
+                                    description: "Successful query response".to_string(),
+                                    ..Default::default()
+                                }),
+                            );
+                            responses.insert(
+                                openapiv3::StatusCode::Code(304),
+                                ReferenceOr::Item(Response {
+                                    description: "Query not modified".to_string(),
+                                    ..Default::default()
+                                }),
+                            );
+                            if !query.public {
+                                responses.insert(
+                                    openapiv3::StatusCode::Code(401),
+                                    ReferenceOr::ref_("#/components/responses/query.unauthorized"),
+                                );
+                            }
                             responses.insert(
                                 openapiv3::StatusCode::Code(404),
                                 ReferenceOr::ref_("#/components/responses/query.notfound"),
