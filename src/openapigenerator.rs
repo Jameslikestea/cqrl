@@ -4,8 +4,8 @@ use indexmap::IndexMap;
 use openapiv3::{
     ArrayType, BooleanType, Components, Header, HeaderStyle, Info, License, MediaType, NumberType,
     ObjectType, OpenAPI, Operation, ParameterData, PathItem, Paths, ReferenceOr, RequestBody,
-    Response, Responses, Schema, SchemaData, SchemaKind, StringFormat, StringType, Type,
-    VariantOrUnknownOrEmpty,
+    Response, Responses, Schema, SchemaData, SchemaKind, SecurityScheme, StringFormat, StringType,
+    Type, VariantOrUnknownOrEmpty,
 };
 use parser::{Command, DataTypes, Model, Query, API};
 
@@ -13,6 +13,16 @@ pub fn generate_openapi_spec(api: API) -> OpenAPI {
     let mut schemas: IndexMap<String, ReferenceOr<Schema>> = IndexMap::new();
     let mut responses: IndexMap<String, ReferenceOr<Response>> = IndexMap::new();
     let mut request_bodies: IndexMap<String, ReferenceOr<RequestBody>> = IndexMap::new();
+    let mut security_schema: IndexMap<String, ReferenceOr<SecurityScheme>> = IndexMap::new();
+    security_schema.insert(
+        "bearerAuth".to_string(),
+        ReferenceOr::Item(SecurityScheme::HTTP {
+            scheme: "bearer".to_string(),
+            bearer_format: None,
+            description: None,
+            extensions: IndexMap::new(),
+        }),
+    );
 
     {
         generate_models(&mut schemas, api.models.clone());
@@ -39,6 +49,7 @@ pub fn generate_openapi_spec(api: API) -> OpenAPI {
             schemas: schemas.clone(),
             responses: responses.clone(),
             request_bodies: request_bodies.clone(),
+            security_schemes: security_schema.clone(),
             ..Default::default()
         }),
         ..Default::default()
@@ -112,6 +123,11 @@ fn generate_paths(
                         ..Default::default()
                     },
                     tags: vec!["commands".to_string()],
+                    security: if !command.public {
+                        Some(vec![IndexMap::from([("bearerAuth".to_string(), vec![])])])
+                    } else {
+                        None
+                    },
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -235,6 +251,11 @@ fn generate_paths(
                             responses
                         },
                         ..Default::default()
+                    },
+                    security: if !query.public {
+                        Some(vec![IndexMap::from([("bearerAuth".to_string(), vec![])])])
+                    } else {
+                        None
                     },
                     ..Default::default()
                 }),

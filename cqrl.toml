@@ -1,0 +1,14 @@
+port = 8912
+host = "0.0.0.0"
+
+[nats]
+prefix = "carve"
+address = "address"
+
+[database]
+mode = "mongodb"
+connection_string = "mongodb://localhost:27017/cqrl"
+
+[telemetry]
+enabled = true
+endpoint = "http://localhost:4318/"
