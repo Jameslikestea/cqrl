@@ -35,12 +35,17 @@ pub fn parse_hcl(input: &str) -> CQRLResult<crate::API> {
 
 fn parse_command(block: &Block) -> crate::Command {
     let mut modelled_by = String::from("model");
+    let mut public = false;
 
     for attribute in block.body().attributes() {
         if attribute.key() == "modelled_by" {
             let expr = attribute.expr().to_string();
             modelled_by = expr.to_string();
-            break;
+        }
+
+        if attribute.key() == "public" {
+            let expr = attribute.expr().to_string();
+            public = expr == "true";
         }
     }
 
@@ -51,17 +56,23 @@ fn parse_command(block: &Block) -> crate::Command {
     crate::Command {
         name: block.labels().first().unwrap().as_str().to_string(),
         modelled_by,
+        public,
     }
 }
 
 fn parse_query(block: &Block) -> crate::Query {
     let mut modelled_by = String::from("model");
+    let mut public = false;
 
     for attribute in block.body().attributes() {
         if attribute.key() == "modelled_by" {
             let expr = attribute.expr().to_string();
             modelled_by = expr.to_string();
-            break;
+        }
+
+        if attribute.key() == "public" {
+            let expr = attribute.expr().to_string();
+            public = expr == "true";
         }
     }
 
@@ -72,6 +83,7 @@ fn parse_query(block: &Block) -> crate::Query {
     crate::Query {
         name: block.labels().first().unwrap().as_str().to_string(),
         modelled_by,
+        public,
     }
 }
 

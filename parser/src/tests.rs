@@ -51,10 +51,12 @@ fn test_validate_api() {
             commands: vec![Command {
                 name: "test".to_string(),
                 modelled_by: "test_input".to_string(),
+                public: false,
             }],
             queries: vec![Query {
                 name: "test".to_string(),
                 modelled_by: "test_output".to_string(),
+                public: false,
             }],
             models: vec![
                 Model {

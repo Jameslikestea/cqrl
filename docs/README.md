@@ -53,7 +53,7 @@ For more detailed documentation, please visit our [documentation site](https://j
         - [ ] Enable websocket watch for processing status (Received, ACK'd, Completed, Failed)
     - Generators
         - [x] Generate OpenAPI spec from CQRL service file
-        - [ ] Generate RxJS client from CQRL service file
+        - [x] Example for generating clients
 - Documentation
     - Usage
         - [ ] Add documentation for configuring CQRL

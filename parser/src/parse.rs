@@ -163,6 +163,7 @@ fn process_stmt_command(stmt: Pair<crate::Rule>) -> crate::Command {
     let mut command = crate::Command {
         name: String::from(""),
         modelled_by: String::from(""),
+        public: false,
     };
 
     for inner_type in stmt.into_inner() {
@@ -196,6 +197,7 @@ fn process_stmt_query(stmt: Pair<crate::Rule>) -> crate::Query {
     let mut query = crate::Query {
         name: String::from(""),
         modelled_by: String::from(""),
+        public: false,
     };
 
     for inner_type in stmt.into_inner() {
