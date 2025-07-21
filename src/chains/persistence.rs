@@ -8,7 +8,7 @@ use mongodb::{
     bson::{self, doc, Bson, DateTime, Document},
     Client,
 };
-use parser::API;
+use parser::{Query, API};
 use serde_json::Value;
 use tracing::instrument;
 
@@ -45,6 +45,18 @@ impl MongoQueryChain {
         }
     }
 
+    pub(crate) fn get_query(&self, context: &ContextManager<String, String>) -> Option<Query> {
+        let Some(method) = context.get(METHOD_KEY) else {
+            return None;
+        };
+
+        let Some(query) = self._api.queries.iter().find(|q| q.name == *method) else {
+            return None;
+        };
+
+        Some(query.clone())
+    }
+
     pub(crate) fn build_match_query(
         &self,
         context: &ContextManager<String, String>,
@@ -59,6 +71,21 @@ impl MongoQueryChain {
             match_query.insert("metadata.type", Bson::String(method.to_string()));
         }
 
+        if let Some(query) = self.get_query(context) {
+            if !query.public {
+                if let Some(auth_id) = context.get(AUTH_CONTEXT_ID_KEY) {
+                    match_query.insert(
+                        "metadata.authcontext.read",
+                        Bson::String(auth_id.to_string()),
+                    );
+                } else {
+                    // This is a private query, so this should never match any documents. If it does,
+                    // it means that the DBA has manually updated the document.
+                    match_query.insert("metadata.authcontext.unauthenticated", Bson::Boolean(true));
+                }
+            }
+        }
+
         Some(match_query)
     }
 
@@ -68,12 +95,7 @@ impl MongoQueryChain {
     ) -> Option<bson::Document> {
         let mut projection = doc! {};
 
-        let method = match context.get(METHOD_KEY) {
-            Some(method) => method,
-            None => return Some(doc! {}),
-        };
-
-        let query_model = match self._api.queries.iter().find(|q| q.name == *method) {
+        let query_model = match self.get_query(context) {
             Some(query_method) => query_method,
             None => return Some(doc! {}),
         };

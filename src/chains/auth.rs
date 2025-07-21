@@ -80,17 +80,15 @@ impl AuthChain {
         let auth = auth_header.split(" ").collect::<Vec<&str>>();
 
         if auth.len() != 2 {
-            tracing::info!("invalid auth header: {:?}", auth_header);
+            tracing::warn!("invalid auth header: {:?}", auth_header);
             return AuthType::Unauthenticated;
         }
 
         if auth[0].to_string() == "Bearer" {
-            tracing::info!("app user auth header: {:?}", auth[1]);
             return AuthType::AppUser(auth[1].to_string());
         }
 
         if auth[0].to_string() == "Api-Key" {
-            tracing::info!("api key auth header: {:?}", auth[1]);
             return AuthType::ApiKey(auth[1].to_string());
         }
 
@@ -107,7 +105,6 @@ impl AuthChain {
                 let mut ctx = ctx.clone();
                 match self.decode_token(&user).await {
                     Ok(claims) => {
-                        tracing::info!("app user claims: {:?}", claims);
                         ctx.insert(AUTH_CONTEXT_ID_KEY.to_string(), claims.sub.to_string());
                         ctx.insert(AUTH_CONTEXT_TYPE_KEY.to_string(), "app_user".to_string());
                     }
@@ -179,13 +176,9 @@ impl ChainLink for AuthChain {
             None => "",
         };
 
-        tracing::info!("auth header: {:?}", auth_hdr);
-
         let auth_info = self.get_auth_type(auth_hdr);
 
         let ctx = self.validate_auth(auth_info, context.clone()).await;
-
-        tracing::info!("auth context: {:?}", ctx);
 
         Ok(ctx)
     }
