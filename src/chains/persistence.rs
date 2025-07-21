@@ -13,7 +13,7 @@ use serde_json::Value;
 use tracing::instrument;
 
 use crate::chains::keys::{
-    AUTH_CONTEXT_ID_KEY, AUTH_CONTEXT_TYPE_KEY, RESPONSE_HEADER_COMMAND_KEY,
+    AUTH_CONTEXT_ID_KEY, AUTH_CONTEXT_TYPE_KEY, RESPONSE_HEADER_COMMAND_KEY, URL_QUERY_ID_KEY,
 };
 
 use super::{
@@ -46,17 +46,17 @@ impl ChainLink for MongoQueryChain {
 
         let mut agg_pipeline = vec![];
 
-        let mut match_query = doc! {
-            "$match": {},
-        };
+        let mut match_query = bson::Document::new();
         let mut projection = doc! {};
+        let mut single = false;
+
+        if let Some(object_id) = context.get(URL_QUERY_ID_KEY) {
+            match_query.insert("_id", Bson::String(object_id.to_string()));
+            single = true;
+        };
 
         if let Some(method) = context.get(METHOD_KEY) {
-            match_query = doc! {
-                "$match": {
-                    "metadata.type": method,
-                },
-            };
+            match_query.insert("metadata.type", Bson::String(method.to_string()));
 
             let Some(query_method) = self._api.queries.iter().find(|q| q.name == *method) else {
                 return Err("Method not found".into());
@@ -86,7 +86,9 @@ impl ChainLink for MongoQueryChain {
             );
         }
 
-        agg_pipeline.push(match_query);
+        agg_pipeline.push(doc! {
+            "$match": match_query,
+        });
         agg_pipeline.push(doc! {
             "$project": projection,
         });
@@ -106,7 +108,12 @@ impl ChainLink for MongoQueryChain {
             objects.push(operation);
         }
 
-        let response = serde_json::to_string(&objects).unwrap();
+        let response = if single && objects.len() > 0 {
+            serde_json::to_string(&objects[0]).unwrap()
+        } else {
+            serde_json::to_string(&objects).unwrap()
+        };
+
         let etag = crc64::crc64(0, response.as_bytes());
 
         hm.insert(RESPONSE_DATA_KEY.to_string(), response);

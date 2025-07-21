@@ -51,6 +51,9 @@ For more detailed documentation, please visit our [documentation site](https://j
             - [x] IP Address
             - [x] Auth Context
         - [ ] Enable websocket watch for processing status (Received, ACK'd, Completed, Failed)
+        - [ ] URL Parameters
+            - [ ] Pagination
+            - [x] Get single item from the server
     - Generators
         - [x] Generate OpenAPI spec from CQRL service file
         - [x] Example for generating clients
