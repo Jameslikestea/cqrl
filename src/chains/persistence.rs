@@ -14,6 +14,8 @@ use tracing::instrument;
 
 use crate::chains::keys::{
     AUTH_CONTEXT_ID_KEY, AUTH_CONTEXT_TYPE_KEY, RESPONSE_HEADER_COMMAND_KEY,
+    RESPONSE_HEADER_OBJECT_COUNT_KEY, URL_QUERY_ID_KEY, URL_QUERY_PAGE_KEY,
+    URL_QUERY_PAGE_SIZE_KEY,
 };
 
 use super::{
@@ -46,17 +48,17 @@ impl ChainLink for MongoQueryChain {
 
         let mut agg_pipeline = vec![];
 
-        let mut match_query = doc! {
-            "$match": {},
-        };
+        let mut match_query = bson::Document::new();
         let mut projection = doc! {};
+        let mut single = false;
+
+        if let Some(object_id) = context.get(URL_QUERY_ID_KEY) {
+            match_query.insert("_id", Bson::String(object_id.to_string()));
+            single = true;
+        };
 
         if let Some(method) = context.get(METHOD_KEY) {
-            match_query = doc! {
-                "$match": {
-                    "metadata.type": method,
-                },
-            };
+            match_query.insert("metadata.type", Bson::String(method.to_string()));
 
             let Some(query_method) = self._api.queries.iter().find(|q| q.name == *method) else {
                 return Err("Method not found".into());
@@ -86,16 +88,97 @@ impl ChainLink for MongoQueryChain {
             );
         }
 
-        agg_pipeline.push(match_query);
+        agg_pipeline.push(doc! {
+            "$match": match_query.clone(),
+        });
         agg_pipeline.push(doc! {
             "$project": projection,
         });
+
+        match (
+            context.get(URL_QUERY_PAGE_KEY),
+            context.get(URL_QUERY_PAGE_SIZE_KEY),
+        ) {
+            (Some(page), Some(page_size)) => {
+                let u32_page = page.parse::<u32>();
+                let u32_page_size = page_size.parse::<u32>();
+
+                if u32_page.is_err() || u32_page_size.is_err() {
+                    return Err("Invalid page or page size".into());
+                }
+
+                let u32_page = u32_page.unwrap();
+                let mut u32_page_size = u32_page_size.unwrap();
+
+                if u32_page_size > 100 {
+                    u32_page_size = 100; // TODO: make this configurable
+                }
+
+                let skip = u32_page * u32_page_size;
+                let limit = u32_page_size;
+
+                agg_pipeline.push(doc! {
+                    "$skip": skip
+                });
+
+                agg_pipeline.push(doc! {
+                    "$limit": limit
+                });
+            }
+            (Some(page), None) => {
+                let u32_page = page.parse::<u32>();
+
+                if u32_page.is_err() {
+                    return Err("Invalid page".into());
+                }
+
+                let skip = u32_page.unwrap() * 10;
+                let limit = 10;
+
+                agg_pipeline.push(doc! {
+                    "$skip": skip
+                });
+
+                agg_pipeline.push(doc! {
+                    "$limit": limit
+                });
+            }
+            (None, Some(page_size)) => {
+                let u32_page_size = page_size.parse::<u32>();
+
+                if u32_page_size.is_err() {
+                    return Err("Invalid page size".into());
+                }
+
+                let mut limit = u32_page_size.unwrap();
+                if limit > 100 {
+                    limit = 100; // TODO: make this configurable
+                }
+
+                agg_pipeline.push(doc! {
+                    "$limit": limit
+                });
+            }
+            (None, None) => {
+                agg_pipeline.push(doc! {
+                    "$limit": 10
+                });
+            }
+        }
 
         let mut result = self
             ._store
             .database("cqrl")
             .collection::<Value>("objects")
             .aggregate(agg_pipeline)
+            .await
+            .unwrap();
+
+        let count = self
+            ._store
+            .database("cqrl")
+            .collection::<Value>("objects")
+            .count_documents(match_query.clone())
             .await
             .unwrap();
 
@@ -106,10 +189,19 @@ impl ChainLink for MongoQueryChain {
             objects.push(operation);
         }
 
-        let response = serde_json::to_string(&objects).unwrap();
+        let response = if single && objects.len() > 0 {
+            serde_json::to_string(&objects[0]).unwrap()
+        } else {
+            serde_json::to_string(&objects).unwrap()
+        };
+
         let etag = crc64::crc64(0, response.as_bytes());
 
         hm.insert(RESPONSE_DATA_KEY.to_string(), response);
+        hm.insert(
+            RESPONSE_HEADER_OBJECT_COUNT_KEY.to_string(),
+            count.to_string(),
+        );
         hm.insert(
             RESPONSE_HEADER_ETAG_KEY.to_string(),
             format!("\"{}\"", etag),
@@ -176,6 +268,13 @@ impl ChainLink for MongoCommandChain {
         metadata.insert("type", Bson::String(method.to_string()));
         metadata.insert("created_at", Bson::DateTime(DateTime::now()));
         metadata.insert("authcontext", Bson::Document(auth_context));
+
+        match context.get(URL_QUERY_ID_KEY) {
+            Some(object_id) => {
+                metadata.insert("subject_id", Bson::String(object_id.to_string()));
+            }
+            None => {}
+        }
 
         let mut data = Document::new();
 

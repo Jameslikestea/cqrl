@@ -1,6 +1,7 @@
 pub(crate) const RESPONSE_DATA_KEY: &str = "response_data";
 pub(crate) const RESPONSE_HEADER_COMMAND_KEY: &str = "response_header_command_key";
 pub(crate) const RESPONSE_HEADER_ETAG_KEY: &str = "response_header_etag_key";
+pub(crate) const RESPONSE_HEADER_OBJECT_COUNT_KEY: &str = "response_header_object_count_key";
 
 pub(crate) const METHOD_KEY: &str = "method";
 pub(crate) const METHOD_TYPE_KEY: &str = "method_type";

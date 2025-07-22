@@ -86,6 +86,13 @@ where
             .extension("authtype", authtype)
             .time(ts);
 
+        match event.metadata.get("subject_id") {
+            Some(subject_id) => {
+                eventbuilder = eventbuilder.subject(subject_id.as_str().unwrap_or(""));
+            }
+            None => (),
+        }
+
         let authid = match event.metadata.get("authcontext") {
             Some(authcontext) => match authcontext.get("authid") {
                 Some(authid) => Some(authid.as_str().unwrap_or("").to_string()),
