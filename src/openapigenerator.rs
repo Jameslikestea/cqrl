@@ -608,6 +608,32 @@ fn generate_responses(
 
                     imap
                 },
+                headers: {
+                    let mut imap = IndexMap::new();
+
+                    imap.insert(
+                        "X-Object-Count".to_string(),
+                        ReferenceOr::Item(Header {
+                            deprecated: None,
+                            description: Some("Number of objects for the given query, if ID is specified this will always be 0..1".to_string()),
+                            example: None,
+                            examples: IndexMap::new(),
+                            extensions: IndexMap::new(),
+                            format: openapiv3::ParameterSchemaOrContent::Schema(ReferenceOr::Item(
+                                Schema {
+                                    schema_data: SchemaData::default(),
+                                    schema_kind: SchemaKind::Type(Type::Number(
+                                        NumberType::default(),
+                                    )),
+                                },
+                            )),
+                            required: false,
+                            style: HeaderStyle::Simple,
+                        }),
+                    );
+
+                    imap
+                },
                 ..Default::default()
             }),
         );

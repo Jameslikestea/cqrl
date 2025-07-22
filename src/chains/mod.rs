@@ -19,6 +19,8 @@ use opentelemetry::{
 use serde_json::Value;
 use tracing::instrument;
 
+use crate::chains::keys::RESPONSE_HEADER_OBJECT_COUNT_KEY;
+
 pub(crate) mod auth;
 pub(crate) mod keys;
 pub(crate) mod log;
@@ -104,6 +106,12 @@ impl Handler<(HttpRequest, Option<Either<Json<Value>, Form<Value>>>)> for Proces
                     builder = builder
                         .append_header(("ETag", etag.to_string()))
                         .append_header(("Cache-Control", "private, max-age=30"))
+                        .take();
+                }
+
+                if let Some(object_count) = context.get(RESPONSE_HEADER_OBJECT_COUNT_KEY) {
+                    builder = builder
+                        .append_header(("X-Object-Count", object_count.to_string()))
                         .take();
                 }
 
