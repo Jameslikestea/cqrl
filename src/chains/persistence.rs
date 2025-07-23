@@ -32,6 +32,135 @@ impl MongoQueryChain {
     pub(crate) fn new(_api: Arc<API>, _store: Arc<mongodb::Client>) -> Self {
         Self { _api, _store }
     }
+
+    pub(crate) fn build_aggregate_match_query(
+        &self,
+        context: &ContextManager<String, String>,
+    ) -> Option<bson::Document> {
+        match self.build_match_query(context) {
+            Some(match_query) => Some(doc! {
+                "$match": match_query,
+            }),
+            None => None,
+        }
+    }
+
+    pub(crate) fn build_match_query(
+        &self,
+        context: &ContextManager<String, String>,
+    ) -> Option<bson::Document> {
+        let mut match_query = bson::Document::new();
+
+        if let Some(object_id) = context.get(URL_QUERY_ID_KEY) {
+            match_query.insert("_id", Bson::String(object_id.to_string()));
+        }
+
+        if let Some(method) = context.get(METHOD_KEY) {
+            match_query.insert("metadata.type", Bson::String(method.to_string()));
+        }
+
+        Some(match_query)
+    }
+
+    pub(crate) fn build_projection(
+        &self,
+        context: &ContextManager<String, String>,
+    ) -> Option<bson::Document> {
+        let mut projection = doc! {};
+
+        let method = match context.get(METHOD_KEY) {
+            Some(method) => method,
+            None => return Some(doc! {}),
+        };
+
+        let query_model = match self._api.queries.iter().find(|q| q.name == *method) {
+            Some(query_method) => query_method,
+            None => return Some(doc! {}),
+        };
+
+        let model = match self
+            ._api
+            .models
+            .iter()
+            .find(|m| m.name == query_model.modelled_by)
+        {
+            Some(model) => model,
+            None => return Some(doc! {}),
+        };
+
+        for field in model.properties.iter() {
+            if field.primary {
+                projection.insert(field.name.clone(), "$_id");
+            } else {
+                projection.insert(field.name.clone(), format!("$data.{}", field.name));
+            }
+        }
+
+        Some(doc! {
+            "$project": projection,
+        })
+    }
+
+    pub(crate) fn build_skip(
+        &self,
+        context: &ContextManager<String, String>,
+    ) -> Option<bson::Document> {
+        let page = self.get_page(context);
+        let page_size = self.get_page_size(context);
+
+        Some(doc! {
+            "$skip": page * page_size,
+        })
+    }
+
+    pub(crate) fn build_limit(
+        &self,
+        context: &ContextManager<String, String>,
+    ) -> Option<bson::Document> {
+        let page_size = self.get_page_size(context);
+
+        Some(doc! {
+            "$limit": page_size,
+        })
+    }
+
+    pub(crate) fn id_present(&self, context: &ContextManager<String, String>) -> bool {
+        context.get(URL_QUERY_ID_KEY).is_some()
+    }
+
+    pub(crate) fn get_page(&self, context: &ContextManager<String, String>) -> u32 {
+        let Some(page) = context.get(URL_QUERY_PAGE_KEY) else {
+            return 0;
+        };
+
+        let u32_page = page.parse::<u32>();
+
+        if u32_page.is_err() {
+            return 0;
+        }
+
+        u32_page.unwrap()
+    }
+
+    pub(crate) fn get_page_size(&self, context: &ContextManager<String, String>) -> u32 {
+        let Some(page_size) = context.get(URL_QUERY_PAGE_SIZE_KEY) else {
+            return 50;
+        };
+
+        let u32_page_size = page_size.parse::<u32>();
+
+        if u32_page_size.is_err() {
+            return 50;
+        }
+
+        let mut u32_page_size = u32_page_size.unwrap();
+
+        if u32_page_size > 100 {
+            u32_page_size = 100; // TODO: make this configurable
+        }
+
+        u32_page_size
+    }
 }
 
 #[async_trait(?Send)]
@@ -46,131 +175,23 @@ impl ChainLink for MongoQueryChain {
         let mut context = context.clone();
         let mut hm = HashMap::new();
 
-        let mut agg_pipeline = vec![];
-
-        let mut match_query = bson::Document::new();
-        let mut projection = doc! {};
-        let mut single = false;
-
-        if let Some(object_id) = context.get(URL_QUERY_ID_KEY) {
-            match_query.insert("_id", Bson::String(object_id.to_string()));
-            single = true;
-        };
-
-        if let Some(method) = context.get(METHOD_KEY) {
-            match_query.insert("metadata.type", Bson::String(method.to_string()));
-
-            let Some(query_method) = self._api.queries.iter().find(|q| q.name == *method) else {
-                return Err("Method not found".into());
-            };
-
-            let Some(model) = self
-                ._api
-                .models
-                .iter()
-                .find(|m| m.name == query_method.modelled_by)
-            else {
-                return Err("Model not found".into());
-            };
-
-            projection = Document::new();
-            for field in model.properties.iter() {
-                if field.primary {
-                    projection.insert(field.name.clone(), "$_id");
-                } else {
-                    projection.insert(field.name.clone(), format!("$data.{}", field.name));
-                }
-            }
-            tracing::info!(
-                method = method,
-                model = model.name,
-                "projecting in return type"
-            );
-        }
-
-        agg_pipeline.push(doc! {
-            "$match": match_query.clone(),
-        });
-        agg_pipeline.push(doc! {
-            "$project": projection,
-        });
-
-        match (
-            context.get(URL_QUERY_PAGE_KEY),
-            context.get(URL_QUERY_PAGE_SIZE_KEY),
-        ) {
-            (Some(page), Some(page_size)) => {
-                let u32_page = page.parse::<u32>();
-                let u32_page_size = page_size.parse::<u32>();
-
-                if u32_page.is_err() || u32_page_size.is_err() {
-                    return Err("Invalid page or page size".into());
-                }
-
-                let u32_page = u32_page.unwrap();
-                let mut u32_page_size = u32_page_size.unwrap();
-
-                if u32_page_size > 100 {
-                    u32_page_size = 100; // TODO: make this configurable
-                }
-
-                let skip = u32_page * u32_page_size;
-                let limit = u32_page_size;
-
-                agg_pipeline.push(doc! {
-                    "$skip": skip
-                });
-
-                agg_pipeline.push(doc! {
-                    "$limit": limit
-                });
-            }
-            (Some(page), None) => {
-                let u32_page = page.parse::<u32>();
-
-                if u32_page.is_err() {
-                    return Err("Invalid page".into());
-                }
-
-                let skip = u32_page.unwrap() * 10;
-                let limit = 10;
-
-                agg_pipeline.push(doc! {
-                    "$skip": skip
-                });
-
-                agg_pipeline.push(doc! {
-                    "$limit": limit
-                });
-            }
-            (None, Some(page_size)) => {
-                let u32_page_size = page_size.parse::<u32>();
-
-                if u32_page_size.is_err() {
-                    return Err("Invalid page size".into());
-                }
-
-                let mut limit = u32_page_size.unwrap();
-                if limit > 100 {
-                    limit = 100; // TODO: make this configurable
-                }
-
-                agg_pipeline.push(doc! {
-                    "$limit": limit
-                });
-            }
-            (None, None) => {
-                agg_pipeline.push(doc! {
-                    "$limit": 10
-                });
-            }
-        }
+        let agg_pipeline = vec![
+            self.build_aggregate_match_query(&context),
+            self.build_projection(&context),
+            self.build_skip(&context),
+            self.build_limit(&context),
+        ];
 
         let mut result = self
             ._store
             .database("cqrl")
             .collection::<Value>("objects")
-            .aggregate(agg_pipeline)
+            .aggregate(
+                agg_pipeline
+                    .iter()
+                    .filter_map(|x| x.clone())
+                    .collect::<Vec<_>>(),
+            )
             .await
             .unwrap();
 
@@ -178,7 +199,7 @@ impl ChainLink for MongoQueryChain {
             ._store
             .database("cqrl")
             .collection::<Value>("objects")
-            .count_documents(match_query.clone())
+            .count_documents(self.build_match_query(&context).unwrap_or_default())
             .await
             .unwrap();
 
@@ -189,7 +210,7 @@ impl ChainLink for MongoQueryChain {
             objects.push(operation);
         }
 
-        let response = if single && objects.len() > 0 {
+        let response = if self.id_present(&context) && objects.len() > 0 {
             serde_json::to_string(&objects[0]).unwrap()
         } else {
             serde_json::to_string(&objects).unwrap()
