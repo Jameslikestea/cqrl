@@ -9,10 +9,13 @@ services:
     networks:
       - cqrl-network
   nats-listener:
-    image: natsio/nats-box:latest
-    command: nats sub -s nats://nats:4222 "cqrl.command.>"
+    image: ghcr.io/warpstreamlabs/bento:latest
     networks:
       - cqrl-network
+    volumes:
+      - ./bento.yml:/bento.yaml
+    ports:
+      - "4195:4195"
   mongo1:
     image: mongodb/mongodb-community-server:latest
     user: root
