@@ -80,7 +80,9 @@ impl MongoQueryChain {
                     );
                 } else {
                     // This is a private query, so this should never match any documents. If it does,
-                    // it means that the DBA has manually updated the document.
+                    // it means that the DBA has manually updated the document. It is intentional that this
+                    // functionality exists, to enable the edge case that something that is usually private
+                    // can be made public for unauthenticated users.
                     match_query.insert("metadata.authcontext.unauthenticated", Bson::Boolean(true));
                 }
             }
