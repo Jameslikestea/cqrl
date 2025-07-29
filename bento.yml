@@ -1,0 +1,25 @@
+input:
+  nats:
+    subject: "cqrl.command.>"
+    urls:
+      - nats://nats:4222
+    queue: bento
+
+
+pipeline:
+  processors:
+    - mapping: |
+        root.specversion = this.specversion
+        root.id = this.id
+        root.source = this.id
+        root.type = "posts"
+        root.datacontenttype = "application/json"
+        root.data = this.data
+        root.data.id = this.id
+        root.time = this.time
+        root.subject = this.id
+
+output:
+  nats:
+    subject: "cqrl.update.posts"
+    urls: ["nats://nats:4222"]
