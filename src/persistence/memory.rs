@@ -95,21 +95,7 @@ impl Store for MemoryStore {
 }
 
 impl PermissionStore for MemoryStore {
-    async fn _permit(&self, id: String, user: String, permission: Permission) -> CQRLResult<bool> {
-        let store = self
-            .permission_store
-            .read()
-            .map_err(|_| errors::CQRLError::Generic)?;
-        match store.get(&id) {
-            Some(permissions) => match permissions.get(&user) {
-                Some(p) => Ok(p.contains(&permission)),
-                None => Ok(false),
-            },
-            None => Ok(false),
-        }
-    }
-
-    async fn _grant(&mut self, id: String, user: String, permission: Permission) -> CQRLResult<()> {
+    async fn grant(&mut self, id: String, user: String, permission: Permission) -> CQRLResult<()> {
         let mut store =
             self.permission_store
                 .write()
@@ -124,12 +110,7 @@ impl PermissionStore for MemoryStore {
         Ok(())
     }
 
-    async fn _revoke(
-        &mut self,
-        id: String,
-        user: String,
-        permission: Permission,
-    ) -> CQRLResult<()> {
+    async fn revoke(&mut self, id: String, user: String, permission: Permission) -> CQRLResult<()> {
         let mut store =
             self.permission_store
                 .write()
@@ -176,7 +157,7 @@ mod tests {
                         )
                         .source("ABCDEF")
                         .build()
-                        .unwrap()
+                        .unwrap(),
                 )
                 .await
                 .is_ok(),

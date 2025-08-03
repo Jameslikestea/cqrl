@@ -1,11 +1,12 @@
 use std::{future::Future, sync::Arc};
 
 use crate::persistence::{PersistenceObject, Store};
-use cloudevents::{AttributesReader, Data, Event};
+use cloudevents::{event::ExtensionValue, AttributesReader, Data, Event};
 use errors::CQRLResult;
 use futures::StreamExt;
 use parser::API;
 use serde_json::Value;
+use tracing::debug;
 
 pub trait EventEmitter<S>: Send + Sync
 where
@@ -14,7 +15,17 @@ where
     fn run(self: &mut Self) -> impl Future<Output = CQRLResult<()>> + Send;
     fn emit(self: &mut Self, event: PersistenceObject) -> CQRLResult<()>;
     fn listen(self: &mut Self, event: Value) -> impl StreamExt<Item = Event> + Send;
+    fn listen_permission(self: &mut Self, event: Value) -> impl StreamExt<Item = Event> + Send;
 }
+
+fn validator(api: Arc<API>) -> impl Fn(Arc<Event>) -> CQRLResult<Event> {
+    move |event| validate_event(event, api.clone())
+}
+
+fn permission_validator(api: Arc<API>) -> impl Fn(Arc<Event>) -> CQRLResult<Event> {
+    move |event| validate_permission(event, api.clone())
+}
+
 fn validate_event(event: Arc<Event>, api: Arc<API>) -> CQRLResult<Event> {
     println!("Validating event: {:?}", event.id());
     let event_type = event.ty();
@@ -83,6 +94,81 @@ fn validate_event(event: Arc<Event>, api: Arc<API>) -> CQRLResult<Event> {
                     },
                     None => {}
                 }
+            }
+
+            Ok(event.as_ref().clone())
+        }
+        None => Err(errors::CQRLError::InvalidEventType),
+    }
+}
+
+fn validate_permission(event: Arc<Event>, api: Arc<API>) -> CQRLResult<Event> {
+    println!("Validating event: {:?}", event.id());
+    let event_type = event.ty();
+    match api.queries.iter().find(|q| q.name == event_type) {
+        Some(_) => {
+            let event_data = match event.data() {
+                Some(data) => match data {
+                    Data::Json(json) => json.clone(),
+                    Data::String(string) => serde_json::from_str(&string).unwrap(),
+                    Data::Binary(binary) => serde_json::from_slice(&binary).unwrap(),
+                },
+                None => return Err(errors::CQRLError::NoEventData),
+            };
+
+            match event.subject() {
+                None => return Err(errors::CQRLError::NoEventData),
+                Some(_) => (),
+            }
+
+            debug!("Event: {:?}", event);
+
+            match event.extension("authtype") {
+                None => {
+                    debug!("No authtype extension found");
+                    return Err(errors::CQRLError::InvalidEventType);
+                }
+                Some(auth) => match auth {
+                    ExtensionValue::String(auth) => {
+                        if auth == "unauthenticated" {
+                            debug!("Unauthenticated auth type");
+                            return Err(errors::CQRLError::InvalidEventType);
+                        }
+                    }
+                    _ => {
+                        debug!("Invalid auth type");
+                        return Err(errors::CQRLError::InvalidEventType);
+                    }
+                },
+            }
+
+            match event.extension("authid") {
+                None => {
+                    debug!("No authid extension found");
+                    return Err(errors::CQRLError::InvalidEventType);
+                }
+                Some(_) => (),
+            }
+
+            match event_data.get("type") {
+                None => {
+                    return Err(errors::CQRLError::RequiredFieldNotSet {
+                        name: "type".to_string(),
+                    });
+                }
+                Some(ty) => match ty {
+                    Value::String(ty) => match ty.as_str() {
+                        "permit" => {}
+                        "deny" => {}
+                        _ => {
+                            debug!("Invalid type");
+                            return Err(errors::CQRLError::InvalidEventType);
+                        }
+                    },
+                    _ => {
+                        return Err(errors::CQRLError::InvalidEventType);
+                    }
+                },
             }
 
             Ok(event.as_ref().clone())

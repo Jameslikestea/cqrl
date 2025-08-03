@@ -2,14 +2,15 @@ use std::sync::Arc;
 use std::{error::Error, fs, time::Duration};
 
 use crate::events::EventEmitter;
-use crate::persistence::Store;
+use crate::persistence::{Permission, PermissionStore, Store};
 use crate::server_v2;
 use crate::{
     commands_generate::GenerateCommand, events::nats::NatsEventEmitter,
     persistence::mongo::MongoStore,
 };
 use clap::Subcommand;
-use cloudevents::AttributesReader;
+use cloudevents::{AttributesReader, Data};
+use errors::CQRLError;
 use futures::StreamExt;
 use mongodb::options::ClientOptions;
 use opentelemetry::{global, KeyValue};
@@ -161,6 +162,56 @@ impl Commands {
                                 };
                             }
                         });
+
+                        let recv_client = client.clone();
+                        let recv_nats = nats_client.clone();
+                        let recv_api = api.clone();
+
+                        tokio::spawn(async move {
+                            let local_store = MongoStore::new(recv_client, recv_api.clone());
+                            let mut local_sender =
+                                NatsEventEmitter::new(local_store.clone(), recv_nats, recv_api);
+
+                            let mut stream = local_sender.listen_permission(Value::Null);
+
+                            while let Some(evt) = stream.next().await {
+                                debug!("Recieved permission event: {}: {:?}", evt.id(), evt.data());
+                                let data = match evt.data().unwrap() {
+                                    Data::Json(json) => json,
+                                    _ => continue,
+                                };
+                                match data.get("type").unwrap().as_str().unwrap() {
+                                    "permit" => {
+                                        let _ = local_store
+                                            .clone()
+                                            .grant(
+                                                evt.subject().unwrap().to_string(),
+                                                evt.extension("authid").unwrap().to_string(),
+                                                match data.get("level").unwrap().as_str().unwrap() {
+                                                    "write" => Permission::Write,
+                                                    _ => Permission::Read,
+                                                },
+                                            )
+                                            .await;
+                                    }
+                                    "deny" => {
+                                        let _ = local_store
+                                            .clone()
+                                            .revoke(
+                                                evt.subject().unwrap().to_string(),
+                                                evt.extension("authid").unwrap().to_string(),
+                                                match data.get("level").unwrap().as_str().unwrap() {
+                                                    "write" => Permission::Write,
+                                                    _ => Permission::Read,
+                                                },
+                                            )
+                                            .await;
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        });
+
                         server_v2::run(api.clone(), Arc::new(client.clone()), jwks_url).await;
                     }
                     mode => {

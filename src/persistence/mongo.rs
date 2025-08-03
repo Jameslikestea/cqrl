@@ -1,10 +1,14 @@
 use std::sync::Arc;
+use std::time::Duration;
+
+use crate::persistence::{Permission, PermissionStore};
 
 use super::{PersistenceObject, Store};
 use cloudevents::{AttributesReader, Data, Event};
 use errors::CQRLResult;
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
+use mongodb::bson::Document;
 use mongodb::{
     bson::{self, doc, Bson},
     Client, IndexModel,
@@ -106,6 +110,194 @@ impl MongoStore {
 
         Bson::Document(document)
     }
+
+    async fn store_object_internal(&mut self, _k: String, evt: Event, tries: u8) -> CQRLResult<()> {
+        let ty = evt.ty().split(".").last().unwrap().to_string();
+
+        let (_id, query) = match evt.subject() {
+            Some(subject) => (
+                subject.to_string(),
+                doc! {
+                    "metadata.type": ty.clone(),
+                    // Check that we've not already processed this event for this subject
+                    "metadata.lineage": {
+                        "$nin": vec![evt.id()],
+                    },
+                    "_id": subject.to_string(),
+                },
+            ),
+            None => {
+                println!("No subject found for event: {:?}", evt.id());
+                return Err(errors::CQRLError::Generic);
+            }
+        };
+
+        let update = doc! {
+            "$setOnInsert": {
+                "_id": _id,
+            },
+            "$addToSet": {
+                "metadata.lineage": evt.id(),
+            },
+            "$set": self.event_to_bson(evt.clone()),
+        };
+
+        match self
+            .client
+            .database("cqrl")
+            .collection::<MongoObject>("objects")
+            .update_one(query, update)
+            .upsert(true)
+            .await
+        {
+            Ok(result) => {
+                println!(
+                    "Applied event: {:?}. Modified: {:?}",
+                    evt.id(),
+                    result.modified_count
+                );
+                Ok(())
+            }
+            Err(err) => {
+                println!("Error storing object: {:?}", err);
+                if tries < 3 {
+                    tokio::time::sleep(Duration::from_millis(u64::from(tries) * 100)).await;
+                    Box::pin(self.store_object_internal(_k, evt, tries + 1)).await
+                } else {
+                    Err(errors::CQRLError::StoreError {
+                        error: format!("Error storing object: {:?}", err),
+                    })
+                }
+            }
+        }
+    }
+
+    async fn grant_internal(
+        &mut self,
+        id: String,
+        user: String,
+        permission: Permission,
+        tries: u8,
+    ) -> CQRLResult<()> {
+        let query = doc! {
+            "_id": id.clone(),
+        };
+
+        let mut update = Document::new();
+        update.insert(
+            "$setOnInsert",
+            doc! {
+                "_id": id.clone(),
+            },
+        );
+
+        match permission {
+            Permission::Read => {
+                update.insert(
+                    "$addToSet",
+                    doc! {
+                        "metadata.authcontext.read": Bson::String(user.clone()),
+                    },
+                );
+            }
+            Permission::Write => {
+                update.insert(
+                    "$addToSet",
+                    doc! {
+                        "metadata.authcontext.read": Bson::String(user.clone()),
+                        "metadata.authcontext.write": Bson::String(user.clone()),
+                    },
+                );
+            }
+        };
+
+        match self
+            .client
+            .database("cqrl")
+            .collection::<MongoObject>("objects")
+            .update_one(query, update)
+            .upsert(true)
+            .await
+        {
+            Ok(result) => {
+                println!(
+                    "Applied grant: {:?}. Modified: {:?}",
+                    id, result.modified_count
+                );
+                Ok(())
+            }
+            Err(err) => {
+                if tries < 3 {
+                    tokio::time::sleep(Duration::from_millis(u64::from(tries) * 100)).await;
+                    Box::pin(self.grant_internal(id, user, permission, tries + 1)).await
+                } else {
+                    Err(errors::CQRLError::StoreError {
+                        error: format!("Error granting permission: {:?}", err),
+                    })
+                }
+            }
+        }
+    }
+
+    async fn revoke_internal(
+        &mut self,
+        id: String,
+        user: String,
+        permission: Permission,
+        tries: u8,
+    ) -> CQRLResult<()> {
+        let query = doc! {
+            "_id": id.clone(),
+        };
+
+        let mut update = Document::new();
+
+        match permission {
+            Permission::Read => {
+                update.insert(
+                    "$pull",
+                    doc! {
+                        "metadata.authcontext.read": Bson::String(user.clone()),
+                        "metadata.authcontext.write": Bson::String(user.clone()),
+                    },
+                );
+            }
+            Permission::Write => {
+                update.insert(
+                    "$pull",
+                    doc! {
+                        "metadata.authcontext.write": Bson::String(user.clone()),
+                    },
+                );
+            }
+        };
+
+        match self
+            .client
+            .database("cqrl")
+            .collection::<MongoObject>("objects")
+            .update_one(query, update)
+            .await
+        {
+            Ok(result) => {
+                println!(
+                    "Applied revoke: {:?}. Modified: {:?}",
+                    id, result.modified_count
+                );
+                Ok(())
+            }
+            Err(err) => {
+                if tries < 3 {
+                    tokio::time::sleep(Duration::from_millis(u64::from(tries) * 100)).await;
+                    Box::pin(self.revoke_internal(id, user, permission, tries + 1)).await
+                } else {
+                    Err(errors::CQRLError::StoreError {
+                        error: format!("Error revoking permission: {:?}", err),
+                    })
+                }
+            }
+        }
+    }
 }
 
 impl Store for MongoStore {
@@ -164,59 +356,7 @@ impl Store for MongoStore {
     }
 
     async fn store_object(&mut self, _k: String, evt: Event) -> errors::CQRLResult<()> {
-        let ty = evt.ty().split(".").last().unwrap().to_string();
-
-        let (_id, query) = match evt.subject() {
-            Some(subject) => (
-                subject.to_string(),
-                doc! {
-                    "metadata.type": ty.clone(),
-                    // Check that we've not already processed this event for this subject
-                    "metadata.lineage": {
-                        "$nin": vec![evt.id()],
-                    },
-                    "_id": subject.to_string(),
-                },
-            ),
-            None => {
-                println!("No subject found for event: {:?}", evt.id());
-                return Err(errors::CQRLError::Generic);
-            }
-        };
-
-        let update = doc! {
-            "$setOnInsert": {
-                "_id": _id,
-            },
-            "$addToSet": {
-                "metadata.lineage": evt.id(),
-            },
-            "$set": self.event_to_bson(evt.clone()),
-        };
-
-        match self
-            .client
-            .database("cqrl")
-            .collection::<MongoObject>("objects")
-            .update_one(query, update)
-            .upsert(true)
-            .await
-        {
-            Ok(result) => {
-                println!(
-                    "Applied event: {:?}. Modified: {:?}",
-                    evt.id(),
-                    result.modified_count
-                );
-                Ok(())
-            }
-            Err(err) => {
-                println!("Error storing object: {:?}", err);
-                Err(errors::CQRLError::StoreError {
-                    error: format!("Error storing object: {:?}", err),
-                })
-            }
-        }
+        self.store_object_internal(_k, evt, 0).await
     }
 
     fn watch_operation(
@@ -245,5 +385,25 @@ impl Store for MongoStore {
         });
 
         receiver
+    }
+}
+
+impl PermissionStore for MongoStore {
+    async fn grant(
+        &mut self,
+        id: String,
+        user: String,
+        permission: super::Permission,
+    ) -> CQRLResult<()> {
+        self.grant_internal(id, user, permission, 0).await
+    }
+
+    async fn revoke(
+        &mut self,
+        id: String,
+        user: String,
+        permission: super::Permission,
+    ) -> CQRLResult<()> {
+        self.revoke_internal(id, user, permission, 0).await
     }
 }

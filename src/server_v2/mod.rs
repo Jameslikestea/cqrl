@@ -36,6 +36,7 @@ pub(crate) async fn run(api: Arc<API>, store: Arc<mongodb::Client>, jwks_url: Op
 
     let head_chain = chains::ProcessingChain::new(vec![
         Arc::new(chains::request::HeaderChain),
+        Arc::new(chains::auth::AuthChain::new(jwks_url.clone())),
         Arc::new(chains::log::LogChain),
         Arc::new(chains::url::URLChain),
         Arc::new(chains::methods::QueryMethod::new(api.clone())),
