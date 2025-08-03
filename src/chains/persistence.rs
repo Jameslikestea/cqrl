@@ -10,7 +10,7 @@ use mongodb::{
 };
 use parser::{Query, API};
 use serde_json::Value;
-use tracing::instrument;
+use tracing::{info, instrument};
 
 use crate::chains::keys::{
     AUTH_CONTEXT_ID_KEY, AUTH_CONTEXT_TYPE_KEY, RESPONSE_HEADER_COMMAND_KEY,
@@ -266,6 +266,50 @@ impl MongoCommandChain {
     pub(crate) fn new(_api: Arc<API>, _store: Arc<mongodb::Client>) -> Self {
         Self { _api, _store }
     }
+
+    pub(crate) async fn check_permission(&self, context: &ContextManager<String, String>) -> bool {
+        info!("Checking permissions");
+        // We can assume if the id is not present then the user can take the action.
+        let Some(id) = context.get(URL_QUERY_ID_KEY) else {
+            return true;
+        };
+
+        let Some(user_id) = context.get(AUTH_CONTEXT_ID_KEY) else {
+            return false;
+        };
+
+        let Some(method) = context.get(METHOD_KEY) else {
+            return false;
+        };
+
+        let Some(command) = self._api.commands.iter().find(|c| c.name == *method) else {
+            return false;
+        };
+
+        let Some(query) = self
+            ._api
+            .queries
+            .iter()
+            .find(|m| m.name == command.authorized_by.clone())
+        else {
+            return false;
+        };
+
+        match self
+            ._store
+            .database("cqrl")
+            .collection::<Value>("objects")
+            .count_documents(doc! {
+                "_id": id,
+                "metadata.type": query.name.clone(),
+                "metadata.authcontext.write": user_id,
+            })
+            .await
+        {
+            Ok(count) => count > 0,
+            Err(_) => false,
+        }
+    }
 }
 
 #[async_trait(?Send)]
@@ -279,6 +323,11 @@ impl ChainLink for MongoCommandChain {
     ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
         let mut context = context.clone();
         let mut hm = HashMap::new();
+
+        if !self.check_permission(&context).await {
+            return Err("Permission denied".into());
+        };
+
         let id = ulid::Ulid::new().to_string();
 
         let Some(command_body) = context.get(COMMAND_BODY_KEY) else {

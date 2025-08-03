@@ -1,10 +1,10 @@
 command "new_post" {
   modelled_by = model.post_input
-  public      = true
 }
 
 command "update_post" {
   modelled_by = model.post_update_input
+  authorized_by = query.posts
 }
 
 query "posts" {
@@ -13,7 +13,6 @@ query "posts" {
 
 query "test" {
   modelled_by = model.post
-  public      = true
 }
 
 model "post_input" {
