@@ -177,10 +177,12 @@ impl MongoStore {
         id: String,
         user: String,
         permission: Permission,
+        ty: String,
         tries: u8,
     ) -> CQRLResult<()> {
         let query = doc! {
             "_id": id.clone(),
+            "metadata.type": ty.clone(),
         };
 
         let mut update = Document::new();
@@ -188,6 +190,13 @@ impl MongoStore {
             "$setOnInsert",
             doc! {
                 "_id": id.clone(),
+            },
+        );
+
+        update.insert(
+            "$set",
+            doc! {
+                "metadata.type": ty.clone(),
             },
         );
 
@@ -229,7 +238,7 @@ impl MongoStore {
             Err(err) => {
                 if tries < 3 {
                     tokio::time::sleep(Duration::from_millis(u64::from(tries) * 100)).await;
-                    Box::pin(self.grant_internal(id, user, permission, tries + 1)).await
+                    Box::pin(self.grant_internal(id, user, permission, ty, tries + 1)).await
                 } else {
                     Err(errors::CQRLError::StoreError {
                         error: format!("Error granting permission: {:?}", err),
@@ -244,13 +253,22 @@ impl MongoStore {
         id: String,
         user: String,
         permission: Permission,
+        ty: String,
         tries: u8,
     ) -> CQRLResult<()> {
         let query = doc! {
             "_id": id.clone(),
+            "metadata.type": ty.clone(),
         };
 
         let mut update = Document::new();
+
+        update.insert(
+            "$set",
+            doc! {
+                "metadata.type": ty.clone(),
+            },
+        );
 
         match permission {
             Permission::Read => {
@@ -289,7 +307,7 @@ impl MongoStore {
             Err(err) => {
                 if tries < 3 {
                     tokio::time::sleep(Duration::from_millis(u64::from(tries) * 100)).await;
-                    Box::pin(self.revoke_internal(id, user, permission, tries + 1)).await
+                    Box::pin(self.revoke_internal(id, user, permission, ty, tries + 1)).await
                 } else {
                     Err(errors::CQRLError::StoreError {
                         error: format!("Error revoking permission: {:?}", err),
@@ -393,17 +411,19 @@ impl PermissionStore for MongoStore {
         &mut self,
         id: String,
         user: String,
+        ty: String,
         permission: super::Permission,
     ) -> CQRLResult<()> {
-        self.grant_internal(id, user, permission, 0).await
+        self.grant_internal(id, user, permission, ty, 0).await
     }
 
     async fn revoke(
         &mut self,
         id: String,
         user: String,
+        ty: String,
         permission: super::Permission,
     ) -> CQRLResult<()> {
-        self.revoke_internal(id, user, permission, 0).await
+        self.revoke_internal(id, user, permission, ty, 0).await
     }
 }

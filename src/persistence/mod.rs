@@ -61,12 +61,14 @@ pub trait PermissionStore: Send + Sync {
         &mut self,
         id: String,
         user: String,
+        ty: String,
         permission: Permission,
     ) -> impl Future<Output = CQRLResult<()>> + Send;
     fn revoke(
         &mut self,
         id: String,
         user: String,
+        ty: String,
         permission: Permission,
     ) -> impl Future<Output = CQRLResult<()>> + Send;
 }

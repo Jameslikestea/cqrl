@@ -10,7 +10,6 @@ use crate::{
 };
 use clap::Subcommand;
 use cloudevents::{AttributesReader, Data};
-use errors::CQRLError;
 use futures::StreamExt;
 use mongodb::options::ClientOptions;
 use opentelemetry::{global, KeyValue};
@@ -187,6 +186,7 @@ impl Commands {
                                             .grant(
                                                 evt.subject().unwrap().to_string(),
                                                 evt.extension("authid").unwrap().to_string(),
+                                                evt.ty().to_string(),
                                                 match data.get("level").unwrap().as_str().unwrap() {
                                                     "write" => Permission::Write,
                                                     _ => Permission::Read,
@@ -200,6 +200,7 @@ impl Commands {
                                             .revoke(
                                                 evt.subject().unwrap().to_string(),
                                                 evt.extension("authid").unwrap().to_string(),
+                                                evt.ty().to_string(),
                                                 match data.get("level").unwrap().as_str().unwrap() {
                                                     "write" => Permission::Write,
                                                     _ => Permission::Read,
