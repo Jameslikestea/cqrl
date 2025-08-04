@@ -46,7 +46,7 @@ For more detailed documentation, please visit our [documentation site](https://j
         - [x] Authenticate requests using JWKS and [Authcontext](https://github.com/cloudevents/spec/blob/main/cloudevents/extensions/authcontext.md)
         - [x] Validate requests against a schema
         - [x] OTLP Logging and metrics
-        - [ ] Authorize requests based on the Authcontext
+        - [x] Authorize requests based on the Authcontext
         - [x] Enable rate limiting
             - [x] IP Address
             - [x] Auth Context
