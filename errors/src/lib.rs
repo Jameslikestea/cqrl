@@ -24,6 +24,8 @@ pub enum CQRLError {
     RequiredFieldNotSet { name: String },
     #[snafu(display("Incorrect type for field: {name}, expected {ty}"))]
     IncorrectTypeForField { name: String, ty: String },
+    #[snafu(display("Permission denied"))]
+    PermissionDenied,
 }
 
 pub type CQRLResult<T> = Result<T, CQRLError>;

@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use actix_web::{web::Path, FromRequest, HttpRequest};
 use async_trait::async_trait;
 use contexts::ContextManager;
+use errors::CQRLError;
 use opentelemetry::{global, metrics::Counter, KeyValue};
 use parser::{DataTypes, Model, API};
 use serde_json::{Map, Value};
@@ -107,35 +108,55 @@ impl CommandMethod {
                 Some(value) => match &field.datatype {
                     DataTypes::ID => {
                         if !value.is_string() {
-                            return Err("Invalid field type".into());
+                            return Err(CQRLError::IncorrectTypeForField {
+                                name: field.name.clone(),
+                                ty: "id".to_string(),
+                            }
+                            .into());
                         }
 
                         object.insert(field.name.clone(), value.clone());
                     }
                     DataTypes::String => {
                         if !value.is_string() {
-                            return Err("Invalid field type".into());
+                            return Err(CQRLError::IncorrectTypeForField {
+                                name: field.name.clone(),
+                                ty: "string".to_string(),
+                            }
+                            .into());
                         }
 
                         object.insert(field.name.clone(), value.clone());
                     }
                     DataTypes::Number => {
                         if !value.is_number() {
-                            return Err("Invalid field type".into());
+                            return Err(CQRLError::IncorrectTypeForField {
+                                name: field.name.clone(),
+                                ty: "number".to_string(),
+                            }
+                            .into());
                         }
 
                         object.insert(field.name.clone(), value.clone());
                     }
                     DataTypes::Datetime => {
                         if !value.is_string() {
-                            return Err("Invalid field type".into());
+                            return Err(CQRLError::IncorrectTypeForField {
+                                name: field.name.clone(),
+                                ty: "datetime".to_string(),
+                            }
+                            .into());
                         }
 
                         object.insert(field.name.clone(), value.clone());
                     }
                     DataTypes::Boolean => {
                         if !value.is_boolean() {
-                            return Err("Invalid field type".into());
+                            return Err(CQRLError::IncorrectTypeForField {
+                                name: field.name.clone(),
+                                ty: "boolean".to_string(),
+                            }
+                            .into());
                         }
 
                         object.insert(field.name.clone(), value.clone());
@@ -146,14 +167,22 @@ impl CommandMethod {
                                 .unwrap()
                                 .is_match(value.as_str().unwrap())
                         {
-                            return Err("Invalid field type".into());
+                            return Err(CQRLError::IncorrectTypeForField {
+                                name: field.name.clone(),
+                                ty: "string".to_string(),
+                            }
+                            .into());
                         }
 
                         object.insert(field.name.clone(), value.clone());
                     }
                     DataTypes::Model(_) => {
                         if !value.is_string() {
-                            return Err("Invalid field type".into());
+                            return Err(CQRLError::IncorrectTypeForField {
+                                name: field.name.clone(),
+                                ty: "id".to_string(),
+                            }
+                            .into());
                         }
 
                         object.insert(field.name.clone(), value.clone());
@@ -161,7 +190,10 @@ impl CommandMethod {
                 },
                 None => {
                     if field.required {
-                        return Err("Missing required field".into());
+                        return Err(CQRLError::RequiredFieldNotSet {
+                            name: field.name.clone(),
+                        }
+                        .into());
                     }
                 }
             }

@@ -7,6 +7,7 @@ use actix_web::{
 };
 use async_trait::async_trait;
 use contexts::ContextManager;
+use errors::CQRLError;
 use keys::{
     REQUEST_HEADER_IF_NONE_MATCH_KEY, RESPONSE_DATA_KEY, RESPONSE_HEADER_COMMAND_KEY,
     RESPONSE_HEADER_ETAG_KEY,
@@ -80,7 +81,29 @@ impl Handler<(HttpRequest, Option<Either<Json<Value>, Form<Value>>>)> for Proces
                 context = match link.process(&context, request_arc.clone(), &body).await {
                     Ok(context) => context,
                     Err(e) => {
-                        return HttpResponse::InternalServerError().body(e.to_string());
+                        if let Ok(e) = e.downcast::<CQRLError>() {
+                            match *e {
+                                CQRLError::PermissionDenied => {
+                                    return HttpResponse::Unauthorized().body("");
+                                }
+                                CQRLError::RequiredFieldNotSet { name } => {
+                                    return HttpResponse::BadRequest()
+                                        .body(format!("Required field not set: {}", name))
+                                }
+                                CQRLError::IncorrectTypeForField { name, ty } => {
+                                    return HttpResponse::BadRequest().body(format!(
+                                        "Incorrect type for field: {}, expected {}",
+                                        name, ty
+                                    ))
+                                }
+                                _ => {
+                                    return HttpResponse::InternalServerError().body(e.to_string());
+                                }
+                            }
+                        } else {
+                            return HttpResponse::InternalServerError()
+                                .body("Internal server error");
+                        }
                     }
                 };
             }

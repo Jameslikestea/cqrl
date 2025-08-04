@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use actix_web::HttpRequest;
 use async_trait::async_trait;
 use contexts::ContextManager;
+use errors::CQRLError;
 use futures::StreamExt;
 use mongodb::{
     bson::{self, doc, Bson, DateTime, Document},
@@ -325,7 +326,7 @@ impl ChainLink for MongoCommandChain {
         let mut hm = HashMap::new();
 
         if !self.check_permission(&context).await {
-            return Err("Permission denied".into());
+            return Err(CQRLError::PermissionDenied.into());
         };
 
         let id = ulid::Ulid::new().to_string();
