@@ -8,6 +8,7 @@ use crate::{
     commands_generate::GenerateCommand, events::nats::NatsEventEmitter,
     persistence::mongo::MongoStore,
 };
+use async_nats::ConnectOptions;
 use clap::Subcommand;
 use cloudevents::{AttributesReader, Data};
 use futures::StreamExt;
@@ -38,6 +39,16 @@ pub(crate) enum Commands {
         mongodb_address: String,
         #[arg(long, short, default_value_t = String::from("nats://localhost:4222"))]
         nats_address: String,
+        #[arg(long)]
+        nats_token: Option<String>,
+        #[arg(long)]
+        nats_username: Option<String>,
+        #[arg(long)]
+        nats_password: Option<String>,
+        #[arg(long)]
+        nats_nkey: Option<String>,
+        #[arg(long)]
+        nats_jwt: Option<String>,
         #[arg(long = "jwks-endpoint")]
         jwks_url: Option<String>,
     },
@@ -50,6 +61,11 @@ impl Default for Commands {
             database_mode: String::from("mongodb"),
             mongodb_address: String::from("mongodb://cqrl:cqrl@localhost:27017/cqrl"),
             nats_address: String::from("nats://localhost:4222"),
+            nats_token: None,
+            nats_username: None,
+            nats_password: None,
+            nats_nkey: None,
+            nats_jwt: None,
             jwks_url: None,
         }
     }
@@ -82,6 +98,11 @@ impl Commands {
                 database_mode,
                 mongodb_address,
                 nats_address,
+                nats_token,
+                nats_username,
+                nats_password,
+                nats_nkey,
+                nats_jwt,
                 jwks_url,
             } => {
                 {
@@ -110,7 +131,29 @@ impl Commands {
                     }
                 };
 
-                let nats_client = async_nats::connect(nats_address).await.unwrap();
+                let nats_option = match (
+                    nats_token,
+                    nats_username,
+                    nats_password,
+                    nats_nkey,
+                    nats_jwt,
+                ) {
+                    (None, None, None, Some(nkey), Some(jwt)) => {
+                        let key_pair = Arc::new(nkeys::KeyPair::from_seed(&nkey).unwrap());
+                        ConnectOptions::with_jwt(jwt, move |nonce| {
+                            let kp = key_pair.clone();
+                            async move { kp.sign(&nonce).map_err(async_nats::AuthError::new) }
+                        })
+                    }
+                    (None, None, None, Some(nkey), None) => ConnectOptions::with_nkey(nkey),
+                    (Some(token), None, None, None, None) => ConnectOptions::with_token(token),
+                    (None, Some(username), Some(password), None, None) => {
+                        ConnectOptions::with_user_and_password(username, password)
+                    }
+                    _ => ConnectOptions::new(),
+                };
+
+                let nats_client = nats_option.connect(nats_address).await.unwrap();
 
                 match database_mode.as_str() {
                     "mongodb" => {
