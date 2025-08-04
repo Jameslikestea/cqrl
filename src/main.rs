@@ -6,7 +6,9 @@ use opentelemetry_appender_tracing::layer;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{logs::SdkLoggerProvider, Resource};
 use serde::{Deserialize, Serialize};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
+use tracing_subscriber::{
+    layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer, Registry,
+};
 
 mod chains;
 mod commands;
