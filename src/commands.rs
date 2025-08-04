@@ -71,10 +71,10 @@ impl Default for Commands {
     }
 }
 
-fn setup_metrics_exporter() {
+fn setup_metrics_exporter(otlp_endpoint: Option<String>) {
     let exporter = opentelemetry_otlp::MetricExporter::builder()
         .with_tonic()
-        .with_endpoint("http://localhost:4318/v1/metrics")
+        .with_endpoint(format!("{}/v1/metrics", otlp_endpoint.unwrap()))
         .build()
         .unwrap();
     let provider = opentelemetry_sdk::metrics::SdkMeterProvider::builder()
@@ -90,7 +90,10 @@ fn setup_metrics_exporter() {
 
 impl Commands {
     #[instrument(skip(self))]
-    pub(crate) async fn run(self: Self) -> Result<(), Box<dyn Error>> {
+    pub(crate) async fn run(
+        self: Self,
+        otlp_endpoint: Option<String>,
+    ) -> Result<(), Box<dyn Error>> {
         match self {
             Commands::Generate { command } => command.run().await,
             Commands::Serve {
@@ -108,9 +111,11 @@ impl Commands {
                 {
                     info!("Serving CQRL for {}", input);
                 }
-                info!("Setting up metrics exporter");
-                setup_metrics_exporter();
-                info!("Metrics exporter setup");
+                if otlp_endpoint.is_some() {
+                    info!("Setting up metrics exporter");
+                    setup_metrics_exporter(otlp_endpoint.clone());
+                    info!("Metrics exporter setup");
+                }
                 let mut content: String = String::new();
 
                 match fs::read_to_string(input.clone()) {
