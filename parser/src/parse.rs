@@ -163,6 +163,7 @@ fn process_stmt_command(stmt: Pair<crate::Rule>) -> crate::Command {
     let mut command = crate::Command {
         name: String::from(""),
         modelled_by: String::from(""),
+        authorized_by: String::from(""),
         public: false,
     };
 

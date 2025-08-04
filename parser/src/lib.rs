@@ -23,6 +23,7 @@ pub struct API {
 pub struct Command {
     pub name: String,
     pub modelled_by: String,
+    pub authorized_by: String,
     pub public: bool,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

@@ -1,13 +1,17 @@
-use std::sync::Arc;
+use std::{
+    pin::Pin,
+    sync::{Arc, Mutex},
+    task::{Context, Poll},
+};
 
 use crate::persistence::{PersistenceObject, Store};
 use cloudevents::{event::ExtensionValue, AttributesReader, Event, EventBuilder};
 use errors::CQRLResult;
-use futures::{channel::mpsc, SinkExt, StreamExt};
+use futures::{Stream, StreamExt};
 use parser::API;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tracing::{info, warn};
+use tracing::warn;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NatsEventEmitter<S>
@@ -127,62 +131,111 @@ where
     }
 
     fn listen(self: &mut Self, _event: Value) -> impl StreamExt<Item = Event> + Send {
-        let (mut tx, rx) = mpsc::unbounded();
-
         let client = self.client.clone().unwrap();
         let api = self.api.clone().unwrap();
-        tokio::spawn(async move {
-            let local_api = api.clone();
-            let mut subscription = client.subscribe("cqrl.update.*").await.unwrap();
-            while let Some(message) = subscription.next().await {
-                let event = match serde_json::from_slice::<cloudevents::Event>(&message.payload) {
-                    Ok(event) => {
-                        // Validate the event
-                        if ulid::Ulid::from_string(event.id()).is_err() {
-                            warn!("Event received with invalid ID: {}, skipping. IDs should be a valid ULID", event.id());
-                            continue;
-                        }
 
-                        match event.subject() {
-                            Some(subject) => {
-                                if ulid::Ulid::from_string(subject).is_err() {
-                                    warn!("Event received with invalid subject: {}, skipping. Subjects should be a valid ULID", subject);
+        let listener = Listener::new(client, "cqrl.update.*", super::validator(api));
+        listener
+    }
+
+    fn listen_permission(self: &mut Self, _event: Value) -> impl StreamExt<Item = Event> + Send {
+        let client = self.client.clone().unwrap();
+        let api = self.api.clone().unwrap();
+
+        let listener = Listener::new(client, "cqrl.permission", super::permission_validator(api));
+        listener
+    }
+}
+
+pub struct Listener {
+    client: Arc<async_nats::Client>,
+    subject: String,
+    buffer: Arc<Mutex<Vec<Event>>>,
+    started: Arc<Mutex<bool>>,
+    validator: Arc<dyn Fn(Arc<Event>) -> CQRLResult<Event> + Send + Sync>,
+}
+
+impl Listener {
+    pub fn new(
+        client: Arc<async_nats::Client>,
+        subject: impl Into<String>,
+        validator: impl Fn(Arc<Event>) -> CQRLResult<Event> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            client,
+            subject: subject.into(),
+            buffer: Arc::new(Mutex::new(Vec::new())),
+            started: Arc::new(Mutex::new(false)),
+            validator: Arc::new(validator),
+        }
+    }
+}
+
+impl Stream for Listener {
+    type Item = Event;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let buffer = self.buffer.clone();
+        let waker = cx.waker().clone();
+        let client = self.client.clone();
+        let subject = self.subject.clone();
+        let validator = self.validator.clone();
+
+        if !*self.started.lock().unwrap() {
+            *self.started.lock().unwrap() = true;
+            tokio::spawn(async move {
+                let mut subscription = client.subscribe(subject).await.unwrap();
+
+                while let Some(message) = subscription.next().await {
+                    let waker = waker.clone();
+                    let event = match serde_json::from_slice::<cloudevents::Event>(&message.payload)
+                    {
+                        Ok(event) => {
+                            // Validate the event
+                            if ulid::Ulid::from_string(event.id()).is_err() {
+                                warn!("Event received with invalid ID: {}, skipping. IDs should be a valid ULID", event.id());
+                                continue;
+                            }
+
+                            match event.subject() {
+                                Some(subject) => {
+                                    if ulid::Ulid::from_string(subject).is_err() {
+                                        warn!("Event received with invalid subject: {}, skipping. Subjects should be a valid ULID", subject);
+                                        continue;
+                                    }
+                                }
+                                None => {
+                                    warn!("Event received with no subject: {}, skipping. Subjects should be a valid ULID", event.id());
                                     continue;
                                 }
                             }
-                            None => {
-                                warn!("Event received with no subject: {}, skipping. Subjects should be a valid ULID", event.id());
-                                continue;
-                            }
+
+                            Arc::new(event)
                         }
+                        Err(err) => {
+                            warn!("Error recieving event on {}: {:?}", message.subject, err);
+                            continue;
+                        }
+                    };
 
-                        Arc::new(event)
-                    }
-                    Err(err) => {
-                        warn!("Error recieving event on {}: {:?}", message.subject, err);
-                        continue;
-                    }
-                };
-
-                let event = match super::validate_event(event.clone(), local_api.clone()) {
-                    Ok(evt) => evt,
-                    Err(err) => {
-                        warn!("Error validating event {}, skipping: {:?}", event.id(), err);
-                        continue;
-                    }
-                };
-
-                match tx.send(event.clone()).await {
-                    Ok(_) => {
-                        info!("Recieved event {} on {}", event.id(), message.subject);
-                    }
-                    Err(err) => {
-                        warn!("Error recieving event on {}: {:?}", message.subject, err);
-                    }
+                    match validator(event.clone()) {
+                        Ok(evt) => {
+                            let mut buffer = buffer.lock().unwrap();
+                            buffer.push(evt.clone());
+                            waker.wake();
+                        }
+                        Err(err) => {
+                            warn!("Error validating event {}, skipping: {:?}", event.id(), err);
+                            continue;
+                        }
+                    };
                 }
-            }
-        });
+            });
+        }
 
-        rx
+        match self.buffer.lock().unwrap().pop() {
+            Some(event) => Poll::Ready(Some(event)),
+            None => Poll::Pending,
+        }
     }
 }

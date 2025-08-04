@@ -3,14 +3,15 @@ use std::{collections::HashMap, sync::Arc};
 use actix_web::HttpRequest;
 use async_trait::async_trait;
 use contexts::ContextManager;
+use errors::CQRLError;
 use futures::StreamExt;
 use mongodb::{
     bson::{self, doc, Bson, DateTime, Document},
     Client,
 };
-use parser::API;
+use parser::{Query, API};
 use serde_json::Value;
-use tracing::instrument;
+use tracing::{info, instrument};
 
 use crate::chains::keys::{
     AUTH_CONTEXT_ID_KEY, AUTH_CONTEXT_TYPE_KEY, RESPONSE_HEADER_COMMAND_KEY,
@@ -45,6 +46,18 @@ impl MongoQueryChain {
         }
     }
 
+    pub(crate) fn get_query(&self, context: &ContextManager<String, String>) -> Option<Query> {
+        let Some(method) = context.get(METHOD_KEY) else {
+            return None;
+        };
+
+        let Some(query) = self._api.queries.iter().find(|q| q.name == *method) else {
+            return None;
+        };
+
+        Some(query.clone())
+    }
+
     pub(crate) fn build_match_query(
         &self,
         context: &ContextManager<String, String>,
@@ -59,6 +72,23 @@ impl MongoQueryChain {
             match_query.insert("metadata.type", Bson::String(method.to_string()));
         }
 
+        if let Some(query) = self.get_query(context) {
+            if !query.public {
+                if let Some(auth_id) = context.get(AUTH_CONTEXT_ID_KEY) {
+                    match_query.insert(
+                        "metadata.authcontext.read",
+                        Bson::String(auth_id.to_string()),
+                    );
+                } else {
+                    // This is a private query, so this should never match any documents. If it does,
+                    // it means that the DBA has manually updated the document. It is intentional that this
+                    // functionality exists, to enable the edge case that something that is usually private
+                    // can be made public for unauthenticated users.
+                    match_query.insert("metadata.authcontext.unauthenticated", Bson::Boolean(true));
+                }
+            }
+        }
+
         Some(match_query)
     }
 
@@ -68,12 +98,7 @@ impl MongoQueryChain {
     ) -> Option<bson::Document> {
         let mut projection = doc! {};
 
-        let method = match context.get(METHOD_KEY) {
-            Some(method) => method,
-            None => return Some(doc! {}),
-        };
-
-        let query_model = match self._api.queries.iter().find(|q| q.name == *method) {
+        let query_model = match self.get_query(context) {
             Some(query_method) => query_method,
             None => return Some(doc! {}),
         };
@@ -242,6 +267,50 @@ impl MongoCommandChain {
     pub(crate) fn new(_api: Arc<API>, _store: Arc<mongodb::Client>) -> Self {
         Self { _api, _store }
     }
+
+    pub(crate) async fn check_permission(&self, context: &ContextManager<String, String>) -> bool {
+        info!("Checking permissions");
+        // We can assume if the id is not present then the user can take the action.
+        let Some(id) = context.get(URL_QUERY_ID_KEY) else {
+            return true;
+        };
+
+        let Some(user_id) = context.get(AUTH_CONTEXT_ID_KEY) else {
+            return false;
+        };
+
+        let Some(method) = context.get(METHOD_KEY) else {
+            return false;
+        };
+
+        let Some(command) = self._api.commands.iter().find(|c| c.name == *method) else {
+            return false;
+        };
+
+        let Some(query) = self
+            ._api
+            .queries
+            .iter()
+            .find(|m| m.name == command.authorized_by.clone())
+        else {
+            return false;
+        };
+
+        match self
+            ._store
+            .database("cqrl")
+            .collection::<Value>("objects")
+            .count_documents(doc! {
+                "_id": id,
+                "metadata.type": query.name.clone(),
+                "metadata.authcontext.write": user_id,
+            })
+            .await
+        {
+            Ok(count) => count > 0,
+            Err(_) => false,
+        }
+    }
 }
 
 #[async_trait(?Send)]
@@ -255,6 +324,11 @@ impl ChainLink for MongoCommandChain {
     ) -> Result<ContextManager<String, String>, Box<dyn std::error::Error>> {
         let mut context = context.clone();
         let mut hm = HashMap::new();
+
+        if !self.check_permission(&context).await {
+            return Err(CQRLError::PermissionDenied.into());
+        };
+
         let id = ulid::Ulid::new().to_string();
 
         let Some(command_body) = context.get(COMMAND_BODY_KEY) else {

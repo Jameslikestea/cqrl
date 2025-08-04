@@ -27,7 +27,7 @@ struct Args {
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
-    let filter_fmt = EnvFilter::new("info");
+    let filter_fmt = EnvFilter::new("info").add_directive("cqrl=debug".parse().unwrap());
     let formatter = tracing_subscriber::fmt::layer()
         .with_level(true)
         .with_target(true)
