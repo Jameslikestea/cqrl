@@ -3,6 +3,19 @@ layout: page
 title: Change Log
 permalink: /changelog
 ---
+## v0.7.0 - 2025-08-04
+### Documentation
+- Getting started (#14)
+
+### Features
+- Example clients and improved schema generation (#9)
+- Url pagination and id filtering (#10)
+- Authorization for requests (#12)
+- Authorize nats requests (#13)
+
+### Refactor
+- Persistence chains
+
 ## v0.6.0 - 2025-07-16
 ### Features
 - Add authentication for app_user type (#7)
