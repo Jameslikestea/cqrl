@@ -60,7 +60,7 @@ For more detailed documentation, please visit our [documentation site](https://j
         - [x] Example for generating clients
 - Documentation
     - Usage
-        - [ ] Add documentation for configuring CQRL
+        - [x] Add documentation for getting started
         - [ ] Add documentation for downstream services
         - [ ] Add documentation for how to update a model
         - [ ] Add documentation for how to authorize user access to models
