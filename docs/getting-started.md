@@ -15,6 +15,14 @@ It's super easy to get started with with CQRL, there are only a small number of 
 * MongoDB Cluster (in a clustered mode, this is needed for watching the collection)
 * JWKS Endpoint
 
+## Installation
+
+At the moment, you can build from source, or install for x86_64 linux from the releases page. To build from source, from the root of the repo run
+
+```bash
+cargo build --release
+```
+
 ## Defining your first API
 
 To define your API you need to define a couple of things in your HCL file. The first is the models that you want to receive or return. Models are defined using the following syntax.
@@ -86,7 +94,7 @@ cqrl generate openapi ./service.hcl ./service.openapi.json
 To serve the API that we've just written we can run something like
 
 ```bash
-cqrl serve --database-mode mongodb --mongodb-address "<CONNECTION_STRING>" --nats-address "<NATS_ADDRESS>" --jwks-endpoint "<JWKS_ENDPOINT>"./service.hcl
+cqrl serve --database-mode mongodb --mongodb-address "<CONNECTION_STRING>" --nats-address "<NATS_ADDRESS>" --jwks-endpoint "<JWKS_ENDPOINT>" ./service.hcl
 ```
 
 This will start serving the API on `0.0.0.0:8912`
