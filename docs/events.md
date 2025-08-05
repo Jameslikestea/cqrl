@@ -11,7 +11,7 @@ CQRL emits and consumes cloud events, this is it's method of interacting with yo
 
 ### Commands
 
-Subject: `cqrl.command.<COMMAND_NAME>`
+Nats Subject: `cqrl.command.<COMMAND_NAME>`
 
 For each `command` that you create in your definition file, the service will emit one cloud event per request that is serviced by the API. The event will be in the format of
 
@@ -47,7 +47,7 @@ For each `command` that you create in your definition file, the service will emi
 
 ### Query Update
 
-Subject: `cqrl.update.<QUERY_NAME>`
+Nats Subject: `cqrl.update.<QUERY_NAME>`
 
 For each value model that you want the query to return, send a single event to the server on the subject. The model should contain the all the required information.
 
@@ -79,7 +79,7 @@ For each value model that you want the query to return, send a single event to t
 
 ### Permission Update
 
-Subject: `cqrl.permission`
+Nats Subject: `cqrl.permission`
 
 For each value model that you want the query to return, send a single event to the server on the subject. The model should contain the all the required information.
 
