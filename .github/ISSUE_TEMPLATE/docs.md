@@ -1,20 +1,16 @@
 ---
-name: Feature request
-about: Suggest an idea for this project
-title: ''
-labels: enhancement
+name: Docs
+about: Use this is something is missing in docs, or something is incorrect
+title: "[DOCS] "
+labels: documentation
 assignees: ''
 
 ---
 
-# Feature Headline
-<!-- Describe in 1 sentence what you want the product to do, or how you want to enhance an existing feature -->
+# Documentation
 
-## Why this
-<!-- Explain why this feature is important to you -->
-
-## Why now (urgency)
-<!-- Explain urgency of the issue, is this something you need now? Is it something that you need in 3 months? -->
+## Problem
+<!-- Use this section to detail what the problem with the documentation is. Is something missing, is something incorrect, or something else entirely -->
 
 ## Triage Info
 
