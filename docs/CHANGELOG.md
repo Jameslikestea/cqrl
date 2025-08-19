@@ -3,6 +3,17 @@ layout: page
 title: Change Log
 permalink: /changelog
 ---
+## v0.7.1 - 2025-08-19
+### Documentation
+- Add events and use-cases (#18)
+- Update subjects to nats subjects
+
+### Performance
+- Build more binaries (#22)
+
+### Chore
+- Bump ring from 0.17.8 to 0.17.14 (#17)
+
 ## v0.7.0 - 2025-08-04
 ### Documentation
 - Getting started (#14)
