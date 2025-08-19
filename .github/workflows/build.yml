@@ -2,6 +2,9 @@ name: Release Rust
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - build-system
 
 env:
   CARGO_TERM_COLOR: always
@@ -85,16 +88,23 @@ jobs:
           git push
 
   build:
-    name: Build - ${{ matrix.platform.os-name }}
-    runs-on: ${{ matrix.platform.runs-on }}
+    name: Build - ${{ matrix.platform.target }}
+    runs-on: ${{ matrix.platform.runner }}
     needs:
       - cliff
     strategy:
       matrix:
         platform:
-          - os-name: Linux x64
-            runs-on: ubuntu-latest
+          - runner: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+          - runner: macos-latest
+            target: x86_64-apple-darwin
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
     permissions:
       contents: write
       packages: write
@@ -109,14 +119,16 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup Rust
-        uses: actions-rust-lang/setup-rust-toolchain@9d7e65c320fdb52dcd45ffaa68deb6c02c8754d9 # v1
-        with:
-          toolchain: stable
-          cache-key: ${{ hashFiles('**/Cargo.lock') }}
-          target: ${{ matrix.platform.target }}
-      - name: Build binary
+        env:
+          CARGO_TARGET: ${{ matrix.platform.target }}
         run: |
-          cargo build --release --target ${{ matrix.platform.target }}
+          rustup update
+          rustup target add $CARGO_TARGET
+      - name: Build binary
+        env:
+          CARGO_TARGET: ${{ matrix.platform.target }}
+        run: |
+          cargo build --release --target $CARGO_TARGET
 
       - name: Upload binary
         uses: actions/github-script@v7
