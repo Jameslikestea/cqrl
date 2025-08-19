@@ -3,7 +3,7 @@ layout: page
 title: Change Log
 permalink: /changelog
 ---
-## v0.7.1 - 2025-08-19
+## v0.7.1 - 2025-08-05
 ### Documentation
 - Add events and use-cases (#18)
 - Update subjects to nats subjects
