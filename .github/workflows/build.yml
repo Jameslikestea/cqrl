@@ -103,8 +103,6 @@ jobs:
             target: x86_64-apple-darwin
           - runner: macos-latest
             target: aarch64-apple-darwin
-          - runner: windows-latest
-            target: x86_64-pc-windows-msvc
     permissions:
       contents: write
       packages: write
@@ -123,7 +121,7 @@ jobs:
           CARGO_TARGET: ${{ matrix.platform.target }}
         run: |
           rustup update
-          rustup target add $CARGO_TARGET
+          rustup target add "$CARGO_TARGET"
       - name: Build binary
         env:
           CARGO_TARGET: ${{ matrix.platform.target }}
