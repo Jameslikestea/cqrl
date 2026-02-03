@@ -35,7 +35,7 @@ opentelemetry-appender-tracing = "0.30.0"
 opentelemetry = "0.30.0"
 clap-serde-derive = "0.2.1"
 toml = "0.8.23"
-jsonwebtoken = "9.3.1"
+jsonwebtoken = "10.3.0"
 reqwest = { version = "0.12.22", features = ["rustls-tls"], default-features = false }
 nkeys = "0.4.5"
 
